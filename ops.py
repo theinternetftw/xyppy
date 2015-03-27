@@ -260,6 +260,19 @@ def loadb(env, opinfo):
         print '    value', env.u8(byte_loc)
         print '    store_var', opinfo.store_var
 
+def storeb(env, opinfo):
+    array_addr = opinfo.operands[0]
+    byte_index = opinfo.operands[1]
+    val = opinfo.operands[2] & 0xff
+
+    env.mem[array_addr+byte_index] = val
+    
+    if DBG:
+        print 'op: storeb'
+        print '    array_addr', array_addr
+        print '    byte_index', byte_index
+        print '    value', val
+
 def storew(env, opinfo):
     array_addr = opinfo.operands[0]
     word_index = opinfo.operands[1]
@@ -630,6 +643,17 @@ def inc(env, opinfo):
         print '    var_num', var_num
         print '    new_val', to_signed_word(var_val)
 
+def dec(env, opinfo):
+    var_num = opinfo.operands[0]
+    var_val = to_signed_word(get_var(env, var_num))
+    var_val = var_val-1 & 0xffff
+    set_var(env, var_num, var_val)
+
+    if DBG:
+        print 'op: dec'
+        print '    var_num', var_num
+        print '    new_val', to_signed_word(var_val)
+
 def inc_chk(env, opinfo):
     var_loc = opinfo.operands[0]
     chk_val = opinfo.operands[1]
@@ -664,7 +688,17 @@ def print_char(env, opinfo):
     sys.stdout.write(char)
     if DBG:
         print
-        print 'op print_char'
+        print 'op: print_char'
+
+def pop(env, opinfo):
+    frame = env.callstack[-1]
+    frame.stack.pop()
+    if DBG:
+        print 'op: pop'
+
+def show_status(env, opinfo):
+    if DBG:
+        print 'op: show_status (not yet impld)'
 
 dispatch = {}
 has_branch_var = {}
@@ -680,6 +714,7 @@ def op(opcode, f, svar=False, bvar=False, txt=False):
 op(5,   inc_chk,                    bvar=True)
 op(6,   jin,                        bvar=True)
 op(13,  store)
+op(14,  insert_obj)
 op(15,  loadw,         svar=True)
 op(45,  store)
 op(48,  loadb,         svar=True)
@@ -689,6 +724,7 @@ op(67,  jg,                         bvar=True)
 op(70,  jin,                        bvar=True)
 op(74,  test_attr,                  bvar=True)
 op(75,  set_attr)
+op(78,  insert_obj)
 op(79,  loadw,         svar=True)
 op(81,  get_prop,      svar=True)
 op(84,  add,           svar=True)
@@ -698,8 +734,11 @@ op(110, insert_obj)
 op(111, loadw,         svar=True)
 op(116, add,           svar=True)
 op(133, inc)
+op(134, dec)
 op(140, jump)
+op(141, print_paddr)
 op(149, inc)
+op(150, dec)
 op(160, jz,                         bvar=True)
 op(161, get_sibling,   svar=True,   bvar=True)
 op(162, get_child,     svar=True,   bvar=True)
@@ -711,11 +750,15 @@ op(176, rtrue)
 op(177, rfalse)
 op(178, _print,                                  txt=True)
 op(184, ret_popped)
+op(185, pop)
 op(187, new_line)
+op(188, show_status)
 op(193, je,                         bvar=True)
 op(201, _and,          svar=True)
+op(213, sub,           svar=True)
 op(224, call,          svar=True)
 op(225, storew)
+op(226, storeb)
 op(229, print_char)
 op(230, print_num)
 
