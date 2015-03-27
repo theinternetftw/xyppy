@@ -273,7 +273,7 @@ def main():
         mem = f.read()
         env = Env(mem)
     
-    NUM_STEPS = 91
+    NUM_STEPS = 104
     for i in range(NUM_STEPS):
         step(env)
 

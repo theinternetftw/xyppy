@@ -112,6 +112,16 @@ def ret(env, opinfo):
         print '    return_val_loc', frame.return_val_loc
         print '    return_addr', hex(frame.return_addr)
 
+def rtrue(env, opinfo):
+    frame = env.callstack.pop()
+    set_var(env, frame.return_val_loc, 1)
+    env.pc = frame.return_addr
+
+    if DBG:
+        print 'op: rtrue'
+        print '    return_val_loc', frame.return_val_loc
+        print '    return_addr', hex(frame.return_addr)
+
 def jz(env, opinfo):
     result = opinfo.operands[0] == 0
 
@@ -247,6 +257,67 @@ def insert_obj(env, opinfo):
         print '    obj after insert:', env.mem[obj_loc:obj_loc+9]
         print '    dest after insert:', env.mem[dest_loc:dest_loc+9]
 
+def print_obj(env, opinfo):
+    obj = opinfo.operands[0]
+
+    tab = env.hdr.obj_tab_base
+    tab += 31*2 # go past default props
+
+    obj_loc = tab + 9*(obj-1)
+    obj_desc_loc = env.u16(obj_loc+7)+1
+    obj_desc_packed = read_packed_string(env, obj_desc_loc)
+    sys.stdout.write(unpack_string(env, obj_desc_packed))
+
+    if DBG:
+        print
+        print 'op: print_obj'
+        print '    obj', obj
+
+def set_attr(env, opinfo):
+    obj = opinfo.operands[0]
+    attr = opinfo.operands[1]
+
+    tab = env.hdr.obj_tab_base
+    tab += 31*2 # go past default props
+
+    obj_loc = tab + 9*(obj-1)
+
+    attr_byte = attr // 8
+    mask = 2**(7-attr%8)
+    env.mem[obj_loc+attr_byte] |= mask
+
+    if DBG:
+        print 'op: set_attr'
+        print '    obj', obj
+        print '    attr', attr
+        print '    attr_byte', attr_byte
+        print '    mask', mask
+
+def test_attr(env, opinfo):
+    obj = opinfo.operands[0]
+    attr = opinfo.operands[1]
+
+    tab = env.hdr.obj_tab_base
+    tab += 31*2 # go past default props
+
+    obj_loc = tab + 9*(obj-1)
+
+    attr_byte = attr // 8
+    attr_val = env.mem[obj_loc+attr_byte] >> 7-attr%8 & 1
+    result = attr_val == 1
+    if result == opinfo.branch_on:
+        env.pc += opinfo.branch_offset - 2
+
+    if DBG:
+        print 'op: test_attr ( branch =', (result==opinfo.branch_on), ')'
+        print '    obj', obj
+        print '    attr', attr
+        print '    attr_byte', attr_byte
+        print '    attr_byte_val', env.mem[obj_loc+attr_byte]
+        print '    attr_val', attr_val
+        print '    branch_on', opinfo.branch_on
+        print '    branch_offset', opinfo.branch_offset
+
 A0 = 'abcdefghijklmnopqrstuvwxyz'
 A1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 A2 = ' \n0123456789.,!?_#\'"/\-:()'
@@ -261,7 +332,7 @@ def read_packed_string(env, addr):
         addr += 2
     return packed_string
 
-def unpack_text(env, packed_text):
+def unpack_string(env, packed_text):
 
     split_text = []
     for word in packed_text:
@@ -284,7 +355,7 @@ def unpack_text(env, packed_text):
             entry_addr = table_addr + 2*(32*(abbrevShift-1) + char)
             word_addr = env.u16(entry_addr)
             packed_string = read_packed_string(env, word_addr*2)
-            text += unpack_text(env, packed_string)
+            text += unpack_string(env, packed_string)
             abbrevShift = 0
         elif mode == '10BIT_HIGH':
             mode = '10BIT_LOW'
@@ -313,7 +384,7 @@ def unpack_text(env, packed_text):
     return ''.join(text)
 
 def _print(env, opinfo):
-    sys.stdout.write(unpack_text(env, opinfo.operands))
+    sys.stdout.write(unpack_string(env, opinfo.operands))
 
     if DBG:
         print
@@ -334,7 +405,7 @@ def print_paddr(env, opinfo):
         if word & 0x8000:
             break
 
-    sys.stdout.write(unpack_text(env, packed_text))
+    sys.stdout.write(unpack_string(env, packed_text))
 
     if DBG:
         print
@@ -372,7 +443,7 @@ def inc_chk(env, opinfo):
     set_var(env, var_loc, var_val)
     result = var_val > chk_val
     if result == opinfo.branch_on:
-        env.pc += opinfo.branch_offset
+        env.pc += opinfo.branch_offset - 2
 
     if DBG:
         print
@@ -415,6 +486,8 @@ op(5,   inc_chk,                  bvar=True)
 op(13,  store)
 op(15,  loadw,       svar=True)
 op(48,  loadb,       svar=True)
+op(74,  test_attr,                bvar=True)
+op(75,  set_attr)
 op(79,  loadw,       svar=True)
 op(84,  add,         svar=True)
 op(85,  sub,         svar=True)
@@ -423,8 +496,10 @@ op(110, insert_obj)
 op(116, add,         svar=True)
 op(140, jump)
 op(160, jz,                       bvar=True)
+op(170, print_obj)
 op(171, ret)
 op(173, print_paddr)
+op(176, rtrue)
 op(178, _print,                                txt=True)
 op(187, new_line)
 op(201, _and,        svar=True)
