@@ -67,6 +67,14 @@ def add(env, opinfo):
         print '    storing',(a+b),'in',opinfo.store_var
 
 def call(env, opinfo):
+
+    packed_addr = opinfo.operands[0]
+    if packed_addr == 0:
+        set_var(env, opinfo.store_var, 0)
+        if DBG:
+            print 'op: calling 0 (returns false)'
+        return
+
     return_addr = env.pc
     call_addr = env.unpack_addr(opinfo.operands[0])
     num_locals = env.u8(call_addr)
@@ -100,53 +108,58 @@ def call(env, opinfo):
         print '    code ptr:', hex(code_ptr)
         print '    first inst:', env.u8(code_ptr)
 
-def ret(env, opinfo):
-    return_val = opinfo.operands[0]
+def handle_return(env, return_val):
     frame = env.callstack.pop()
     set_var(env, frame.return_val_loc, return_val)
     env.pc = frame.return_addr
 
     if DBG:
-        print 'op: ret'
+        print 'helper: handle_return'
         print '    return_val', return_val
         print '    return_val_loc', frame.return_val_loc
         print '    return_addr', hex(frame.return_addr)
 
+def ret(env, opinfo):
+    return_val = opinfo.operands[0]
+    handle_return(env, return_val)
+
+    if DBG:
+        print 'op: ret'
+
 def rtrue(env, opinfo):
-    frame = env.callstack.pop()
-    set_var(env, frame.return_val_loc, 1)
-    env.pc = frame.return_addr
+    handle_return(env, 1)
 
     if DBG:
         print 'op: rtrue'
-        print '    return_val_loc', frame.return_val_loc
-        print '    return_addr', hex(frame.return_addr)
+
+def rfalse(env, opinfo):
+    handle_return(env, 0)
+
+    if DBG:
+        print 'op: rfalse'
+
+def ret_popped(env, opinfo):
+    frame = env.callstack[-1]
+    ret_val = frame.stack.pop()
+    handle_return(env, ret_val)
+
+    if DBG:
+        print 'op: ret_popped'
+        print '    ret_val', ret_val
 
 def jz(env, opinfo):
     result = opinfo.operands[0] == 0
 
-    if result != opinfo.branch_on:
-        if DBG:
-            print 'op: jump zero (zero) (not taken)'
-            print '    operand', opinfo.operands[0]
-            print '    branch_on', opinfo.branch_on
-        return
-
-    postjmp_addr = env.pc + opinfo.branch_offset - 2
-    postjmp_inst = env.u8(postjmp_addr)
-
-    if opinfo.branch_offset == 0:
-        err('should return false here (jz shortcut)')
-    if opinfo.branch_offset == 1:
-        err('should return true here (jz shortcut)')
-
-    env.pc = postjmp_addr
+    if result == opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+        jump_info_txt = 'taken'
+    else:
+        jump_info_txt = 'not taken'
 
     if DBG:
-        print 'op: jump zero (jz) (taken)'
+        print 'op: jump zero (jz) ('+jump_info_txt+')'
         print '    branch_offset', opinfo.branch_offset
         print '    branch_on', opinfo.branch_on
-        print '    postjmp_addr', hex(postjmp_addr)
 
 def je(env, opinfo):
     first = opinfo.operands[0]
@@ -156,28 +169,60 @@ def je(env, opinfo):
             result = False
             break
 
-    if result != opinfo.branch_on:
-        if DBG:
-            print 'op: jump equal (je) (not taken)'
-            print '    operands', opinfo.operands
-            print '    branch_on', opinfo.branch_on
-        return
-
-    postjmp_addr = env.pc + opinfo.branch_offset - 2
-    postjmp_inst = env.u8(postjmp_addr)
-
-    if opinfo.branch_offset == 0:
-        err('should return false here (je shortcut)')
-    if opinfo.branch_offset == 1:
-        err('should return true here (je shortcut)')
-
-    env.pc = postjmp_addr
+    if result == opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+        jump_info_txt = 'taken'
+    else:
+        jump_info_txt = 'not taken'
 
     if DBG:
-        print 'op: jump equal (je) (taken)'
+        print 'op: jump equal (je) ('+jump_info_txt+')'
         print '    branch_offset', opinfo.branch_offset
         print '    branch_on', opinfo.branch_on
-        print '    postjmp_addr', hex(postjmp_addr)
+
+def jl(env, opinfo):
+    a = to_signed_word(opinfo.operands[0])
+    b = to_signed_word(opinfo.operands[1])
+    result = a < b
+
+    if result == opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+        jump_info_txt = 'taken'
+    else:
+        jump_info_txt = 'not taken'
+
+    if DBG:
+        print 'op: jump less than (jl) ('+jump_info_txt+')'
+        print '    a', a
+        print '    b', b
+        print '    branch_offset', opinfo.branch_offset
+        print '    branch_on', opinfo.branch_on
+
+def jg(env, opinfo):
+    a = to_signed_word(opinfo.operands[0])
+    b = to_signed_word(opinfo.operands[1])
+    result = a > b
+
+    if result == opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+        jump_info_txt = 'taken'
+    else:
+        jump_info_txt = 'not taken'
+
+    if DBG:
+        print 'op: jump greater than (jg) ('+jump_info_txt+')'
+        print '    a', a
+        print '    b', b
+        print '    branch_offset', opinfo.branch_offset
+        print '    branch_on', opinfo.branch_on
+
+def handle_branch(env, offset):
+    if offset == 0:
+        handle_return(env, 0)
+    elif offset == 1:
+        handle_return(env, 1)
+    else:
+        env.pc += offset - 2
 
 def jump(env, opinfo):
     offset = to_signed_word(opinfo.operands[0])
@@ -186,7 +231,6 @@ def jump(env, opinfo):
     if DBG:
         print 'op: jump'
         print '    offset', offset
-        print '    new pc', hex(env.pc)
 
 def loadw(env, opinfo):
     array_addr = opinfo.operands[0]
@@ -249,46 +293,129 @@ def insert_obj(env, opinfo):
     dest_loc = tab + 9*(dest-1)
     dest_child = env.u8(dest_loc+6)
 
+    # it doesn't say explicitly to make obj's parent
+    # field say dest, but *surely* that's the right
+    # thing to do. Right?
+
+    env.mem[obj_loc+4] = dest
     env.mem[obj_loc+5] = dest_child
     env.mem[dest_loc+6] = obj
 
     if DBG:
         print 'op: insert_obj'
+        print '    obj', obj, '(', get_obj_str(env,obj), ')'
+        print '    dest', dest, '(', get_obj_str(env,dest), ')'
         print '    obj after insert:', env.mem[obj_loc:obj_loc+9]
         print '    dest after insert:', env.mem[dest_loc:dest_loc+9]
 
-def print_obj(env, opinfo):
-    obj = opinfo.operands[0]
-
+def get_obj_addr(env, obj):
     tab = env.hdr.obj_tab_base
     tab += 31*2 # go past default props
+    return tab + 9*(obj-1)
 
-    obj_loc = tab + 9*(obj-1)
-    obj_desc_loc = env.u16(obj_loc+7)+1
-    obj_desc_packed = read_packed_string(env, obj_desc_loc)
-    sys.stdout.write(unpack_string(env, obj_desc_packed))
+# split these off to suggest structure for future compat...
+def get_parent_num(env, obj_addr):
+    return env.u8(obj_addr+4)
+
+def get_sibling_num(env, obj_addr):
+    return env.u8(obj_addr+5)
+
+def get_child_num(env, obj_addr):
+    return env.u8(obj_addr+6)
+
+def get_child(env, opinfo):
+    obj = opinfo.operands[0]
+
+    obj_addr = get_obj_addr(env, obj)
+    child_num = get_child_num(env, obj_addr)
+    set_var(env, opinfo.store_var, child_num)
+
+    result = child_num != 0
+    if result == opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+
+    if DBG:
+        print 'op: get_child ( branched =',(result==opinfo.branch_on),')'
+        print '    obj', obj,'(',get_obj_str(env, obj),')'
+        print '    child_num', child_num
+        print '    branch_on', opinfo.branch_on
+        print '    branch_offset', opinfo.branch_offset
+
+def get_sibling(env, opinfo):
+    obj = opinfo.operands[0]
+
+    obj_addr = get_obj_addr(env, obj)
+    sibling_num = get_sibling_num(env, obj_addr)
+    set_var(env, opinfo.store_var, sibling_num)
+
+    result = sibling_num != 0
+    if result == opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+
+    if DBG:
+        print 'op: get_sibling ( branched =',(result==opinfo.branch_on),')'
+        print '    obj', obj,'(',get_obj_str(env, obj),')'
+        print '    sibling_num', sibling_num
+        print '    branch_on', opinfo.branch_on
+        print '    branch_offset', opinfo.branch_offset
+
+def get_parent(env, opinfo):
+    obj = opinfo.operands[0]
+
+    obj_addr = get_obj_addr(env, obj)
+    parent_num = get_parent_num(env, obj_addr)
+    set_var(env, opinfo.store_var, parent_num)
+
+    if DBG:
+        print 'op: get_parent'
+        print '    obj', obj,'(',get_obj_str(env, obj),')'
+        print '    parent_num', parent_num
+
+def jin(env, opinfo):
+    obj1 = opinfo.operands[0]
+    obj2 = opinfo.operands[1]
+
+    obj1_addr = get_obj_addr(env, obj1)
+    
+    result = env.mem[obj1_addr+4] == obj2
+
+    if result == opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+
+    if DBG:
+        print 'op: jin ( branch =',(result==opinfo.branch_on),')'
+        print '    obj1', obj1, '(',get_obj_str(env,obj1),')'
+        print '    obj2', obj2, '(',get_obj_str(env,obj2),')'
+
+def get_obj_str(env, obj):
+    obj_addr = get_obj_addr(env, obj)
+    obj_desc_addr = env.u16(obj_addr+7)+1
+    obj_desc_packed = read_packed_string(env, obj_desc_addr)
+
+    return unpack_string(env, obj_desc_packed)
+
+def print_obj(env, opinfo):
+    obj = opinfo.operands[0]
+    sys.stdout.write(get_obj_str(env, obj))
 
     if DBG:
         print
         print 'op: print_obj'
-        print '    obj', obj
+        print '    obj', obj, '(', get_obj_str(env, obj), ')'
 
 def set_attr(env, opinfo):
     obj = opinfo.operands[0]
     attr = opinfo.operands[1]
 
-    tab = env.hdr.obj_tab_base
-    tab += 31*2 # go past default props
-
-    obj_loc = tab + 9*(obj-1)
+    obj_addr = get_obj_addr(env, obj)
 
     attr_byte = attr // 8
     mask = 2**(7-attr%8)
-    env.mem[obj_loc+attr_byte] |= mask
+    env.mem[obj_addr+attr_byte] |= mask
 
     if DBG:
         print 'op: set_attr'
-        print '    obj', obj
+        print '    obj', obj, '(', get_obj_str(env,obj), ')'
         print '    attr', attr
         print '    attr_byte', attr_byte
         print '    mask', mask
@@ -297,26 +424,83 @@ def test_attr(env, opinfo):
     obj = opinfo.operands[0]
     attr = opinfo.operands[1]
 
-    tab = env.hdr.obj_tab_base
-    tab += 31*2 # go past default props
-
-    obj_loc = tab + 9*(obj-1)
+    obj_addr = get_obj_addr(env, obj)
 
     attr_byte = attr // 8
-    attr_val = env.mem[obj_loc+attr_byte] >> 7-attr%8 & 1
+    attr_val = env.mem[obj_addr+attr_byte] >> 7-attr%8 & 1
     result = attr_val == 1
     if result == opinfo.branch_on:
-        env.pc += opinfo.branch_offset - 2
+        handle_branch(env, opinfo.branch_offset)
 
     if DBG:
         print 'op: test_attr ( branch =', (result==opinfo.branch_on), ')'
-        print '    obj', obj
+        print '    obj', obj, '(', get_obj_str(env,obj), ')'
         print '    attr', attr
         print '    attr_byte', attr_byte
-        print '    attr_byte_val', env.mem[obj_loc+attr_byte]
+        print '    attr_byte_val', env.mem[obj_addr+attr_byte]
         print '    attr_val', attr_val
         print '    branch_on', opinfo.branch_on
         print '    branch_offset', opinfo.branch_offset
+
+def get_prop_list_start(env, obj):
+    prop_tab_addr = env.u16(get_obj_addr(env, obj)+7)
+    obj_text_len_words = env.u8(prop_tab_addr)
+    return prop_tab_addr + 1 + 2*obj_text_len_words
+
+def print_prop_list(env, obj):
+    print get_obj_str(env, obj)+':'
+    ptr = get_prop_list_start(env, obj)
+    while env.u8(ptr):
+        size_and_num = env.u8(ptr)
+        num = size_and_num & 31
+        size = (size_and_num >> 5) + 1
+        print 'prop #',num,' - size',size
+        for i in range(size):
+            print '    '+env.u8(ptr+1+i)
+        ptr += 1 + size
+
+def get_default_prop(env, prop_num):
+    base = env.hdr.obj_tab_base
+    return env.u16(base + 2*prop_num)
+
+def get_prop(env, opinfo):
+    obj = opinfo.operands[0]
+    prop_num = opinfo.operands[1]
+
+    result = None
+    got_default_prop = False
+    prop_list_ptr = get_prop_list_start(env, obj)
+    while env.u8(prop_list_ptr):
+        size_and_num = env.u8(prop_list_ptr)
+        num = size_and_num & 31
+        size = (size_and_num >> 5) + 1
+        if num == prop_num:
+            if size == 2:
+                result = env.u16(prop_list_ptr+1)
+                break
+            elif size == 1:
+                result = env.u8(prop_list_ptr+1)
+                break
+            else:
+                msg = 'illegal op: get_prop on outsized prop (not 1-2 bytes)'
+                msg += ' - prop '+str(prop_num)
+                msg += ' of obj '+obj+' ('+get_obj_str(obj)+')'
+                msg += ' (sized at '+size+' bytes)'
+                err(msg)
+        prop_list_ptr += 1 + size
+
+    if result == None:
+        result = get_default_prop(env, prop_num)
+        got_default_prop = True
+
+    set_var(env, opinfo.store_var, result)
+
+    if DBG:
+        print 'op: get_prop'
+        print '    obj', obj,'(',get_obj_str(env,obj),')'
+        print '    prop_num', prop_num
+        print '    result', result
+        print '    got_default_prop', got_default_prop
 
 A0 = 'abcdefghijklmnopqrstuvwxyz'
 A1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -435,18 +619,29 @@ def print_num(env, opinfo):
         print 'op: print_num'
         print '    num', num
 
+def inc(env, opinfo):
+    var_num = opinfo.operands[0]
+    var_val = to_signed_word(get_var(env, var_num))
+    var_val = var_val+1 & 0xffff
+    set_var(env, var_num, var_val)
+
+    if DBG:
+        print 'op: inc'
+        print '    var_num', var_num
+        print '    new_val', to_signed_word(var_val)
+
 def inc_chk(env, opinfo):
     var_loc = opinfo.operands[0]
     chk_val = opinfo.operands[1]
 
-    var_val = get_var(env, var_loc) + 1
+    var_val = to_signed_word(get_var(env, var_loc))
+    var_val = var_val+1 & 0xffff
     set_var(env, var_loc, var_val)
     result = var_val > chk_val
     if result == opinfo.branch_on:
-        env.pc += opinfo.branch_offset - 2
+        handle_branch(env, opinfo.branch_offset)
 
     if DBG:
-        print
         print 'op: inc_chk ( branched =',(result==opinfo.branch_on),')'
         print '    chk_val', chk_val
         print '    var_loc', var_loc
@@ -482,28 +677,44 @@ def op(opcode, f, svar=False, bvar=False, txt=False):
     has_branch_var[opcode] = bvar
     has_text[opcode] = txt
 
-op(5,   inc_chk,                  bvar=True)
+op(5,   inc_chk,                    bvar=True)
+op(6,   jin,                        bvar=True)
 op(13,  store)
-op(15,  loadw,       svar=True)
-op(48,  loadb,       svar=True)
-op(74,  test_attr,                bvar=True)
+op(15,  loadw,         svar=True)
+op(45,  store)
+op(48,  loadb,         svar=True)
+op(65,  je,                         bvar=True)
+op(66,  jl,                         bvar=True)
+op(67,  jg,                         bvar=True)
+op(70,  jin,                        bvar=True)
+op(74,  test_attr,                  bvar=True)
 op(75,  set_attr)
-op(79,  loadw,       svar=True)
-op(84,  add,         svar=True)
-op(85,  sub,         svar=True)
-op(97,  je,                       bvar=True)
+op(79,  loadw,         svar=True)
+op(81,  get_prop,      svar=True)
+op(84,  add,           svar=True)
+op(85,  sub,           svar=True)
+op(97,  je,                         bvar=True)
 op(110, insert_obj)
-op(116, add,         svar=True)
+op(111, loadw,         svar=True)
+op(116, add,           svar=True)
+op(133, inc)
 op(140, jump)
-op(160, jz,                       bvar=True)
+op(149, inc)
+op(160, jz,                         bvar=True)
+op(161, get_sibling,   svar=True,   bvar=True)
+op(162, get_child,     svar=True,   bvar=True)
+op(163, get_parent,    svar=True)
 op(170, print_obj)
 op(171, ret)
-op(173, print_paddr)
+op(173, print_paddr)  
 op(176, rtrue)
-op(178, _print,                                txt=True)
+op(177, rfalse)
+op(178, _print,                                  txt=True)
+op(184, ret_popped)
 op(187, new_line)
-op(201, _and,        svar=True)
-op(224, call,        svar=True)
+op(193, je,                         bvar=True)
+op(201, _and,          svar=True)
+op(224, call,          svar=True)
 op(225, storew)
 op(229, print_char)
 op(230, print_num)

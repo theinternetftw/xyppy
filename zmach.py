@@ -125,7 +125,7 @@ class VarSize:
 def get_operand_sizes(szbyte):
     sizes = []
     offset = 6
-    while offset > 0 and (szbyte >> offset) & 3 != 3:
+    while offset >= 0 and (szbyte >> offset) & 3 != 3:
         size = (szbyte >> offset) & 3
         if size == 0b00:
             sizes.append(WordSize)
@@ -230,7 +230,7 @@ def step(env):
         else:
             branch_offset = branch_info & 0x3f
             branch_offset <<= 8
-            branch_offset = env.u8(operand_ptr)
+            branch_offset |= env.u8(operand_ptr)
             operand_ptr += 1
             # sign extend 14b # to 16b
             if branch_offset & 0x2000:
@@ -245,11 +245,20 @@ def step(env):
             if word & 0x8000:
                 break
 
+    prev_pc = env.pc
+
     # After all that, operand_ptr should now point to next op
     env.pc = operand_ptr
 
+    def hex_out(bytes):
+        s = ''
+        for b in bytes:
+            s += hex(b) + ' '
+        return s
+    op_hex = hex_out(env.mem[prev_pc:env.pc])
+
     if DBG:
-        print 'step: pc', hex(env.pc)
+        print 'step: pc', hex(prev_pc)
         print '      opcode', opcode
         print '      form', form
         print '      count', count
@@ -259,6 +268,8 @@ def step(env):
         if foundVarStr:
             print foundVarStr,
         print '      operands', opinfo.operands
+        print '      next_pc', hex(env.pc)
+        print '      bytes', op_hex
 
     # TODO: decide if opcode should be passed or opnum
     # (i.e. is opnum specific enough, b/c that would simplify things)
@@ -273,7 +284,7 @@ def main():
         mem = f.read()
         env = Env(mem)
     
-    NUM_STEPS = 104
+    NUM_STEPS = 318
     for i in range(NUM_STEPS):
         step(env)
 
