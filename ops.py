@@ -3,6 +3,7 @@
 # dict lookup is too slow
 
 import sys
+import random
 
 from zmach import to_signed_word, to_signed_char, err, DBG
 
@@ -51,20 +52,32 @@ def set_var(env, store_var, result):
 def sub(env, opinfo):
     a = to_signed_word(opinfo.operands[0])
     b = to_signed_word(opinfo.operands[1])
-    set_var(env, opinfo.store_var, a-b)
+    result = a-b
+    set_var(env, opinfo.store_var, result)
 
     if DBG:
         print 'op: subtracting',a,'and',b
-        print '    storing',(a-b),'in',opinfo.store_var
+        print '    storing',result,'in',opinfo.store_var
 
 def add(env, opinfo):
     a = to_signed_word(opinfo.operands[0])
     b = to_signed_word(opinfo.operands[1])
-    set_var(env, opinfo.store_var, a+b)
+    result = a+b
+    set_var(env, opinfo.store_var, result)
 
     if DBG:
         print 'op: adding',a,'and',b
-        print '    storing',(a+b),'in',opinfo.store_var
+        print '    storing',result,'in',opinfo.store_var
+
+def div(env, opinfo):
+    a = to_signed_word(opinfo.operands[0])
+    b = to_signed_word(opinfo.operands[1])
+    result = a // b
+    set_var(env, opinfo.store_var, result)
+    
+    if DBG:
+        print 'op: diving',a,'and',b
+        print '    storing',result,'in',opinfo.store_var
 
 def call(env, opinfo):
 
@@ -433,6 +446,24 @@ def set_attr(env, opinfo):
         print '    attr_byte', attr_byte
         print '    mask', mask
 
+def clear_attr(env, opinfo):
+    obj = opinfo.operands[0]
+    attr = opinfo.operands[1]
+
+    obj_addr = get_obj_addr(env, obj)
+
+    attr_byte = attr // 8
+    mask = 2**(7-attr%8)
+    env.mem[obj_addr+attr_byte] &= ~mask
+
+    if DBG:
+        print 'op: clear_attr'
+        print '    obj', obj, '(', get_obj_str(env,obj), ')'
+        print '    attr', attr
+        print '    attr_byte', attr_byte
+        print '    mask', mask
+        print '    new_byte_val', env.mem[obj_addr+attr_byte]
+
 def test_attr(env, opinfo):
     obj = opinfo.operands[0]
     attr = opinfo.operands[1]
@@ -461,50 +492,108 @@ def get_prop_list_start(env, obj):
     return prop_tab_addr + 1 + 2*obj_text_len_words
 
 def print_prop_list(env, obj):
-    print get_obj_str(env, obj)+':'
+    print obj,'-',get_obj_str(env, obj)+':'
     ptr = get_prop_list_start(env, obj)
     while env.u8(ptr):
         size_and_num = env.u8(ptr)
         num = size_and_num & 31
         size = (size_and_num >> 5) + 1
-        print 'prop #',num,' - size',size
+        print 'prop #',num,' - size',size,
         for i in range(size):
-            print '    '+env.u8(ptr+1+i)
+            print hex(env.u8(ptr+1+i)),
+        print
         ptr += 1 + size
 
 def get_default_prop(env, prop_num):
     base = env.hdr.obj_tab_base
     return env.u16(base + 2*prop_num)
 
+def put_prop(env, opinfo):
+    obj = opinfo.operands[0]
+    prop_num = opinfo.operands[1]
+    val = opinfo.operands[2]
+
+    prop_addr = _get_prop_addr(env, obj, prop_num)
+    if prop_addr == 0:
+        msg = 'illegal op: put_prop on nonexistant property'
+        msg += ' - prop '+str(prop_num)
+        msg += ' not found on obj '+str(obj)+' ('+get_obj_str(env, obj)+')' 
+        err(msg)
+    
+    size_and_num = env.u8(prop_addr)
+    size = (size_and_num >> 5) + 1
+    if size == 2:
+        env.mem[prop_addr+1] = val >> 8
+        env.mem[prop_addr+2] = val & 0xff
+    elif size == 1:
+        env.mem[prop_addr+1] = val & 0xff
+    else:
+        msg = 'illegal op: put_prop on outsized prop (not 1-2 bytes)'
+        msg += ' - prop '+str(prop_num)
+        msg += ' of obj '+str(obj)+' ('+get_obj_str(obj)+')'
+        msg += ' (sized at '+size+' bytes)'
+        err(msg)
+
+    if DBG:
+        print 'op: put_prop'
+        print '    obj', obj,'(',get_obj_str(env,obj),')'
+        print '    prop_num', prop_num
+        print '    val', val
+
+def _get_prop_addr(env, obj, prop_num):
+    prop_ptr = get_prop_list_start(env, obj)
+    while env.u8(prop_ptr):
+        size_and_num = env.u8(prop_ptr)
+        num = size_and_num & 31
+        size = (size_and_num >> 5) + 1
+        if num == prop_num:
+            return prop_ptr
+        prop_ptr += 1 + size
+    return 0
+
+def get_prop_addr(env, opinfo):
+    obj = opinfo.operands[0]
+    prop_num = opinfo.operands[1]
+
+    result = _get_prop_addr(env, obj, prop_num)
+    set_var(env, opinfo.store_var, result)
+
+    if DBG:
+        print 'op: get_prop_addr'
+        print '    obj', obj,'(',get_obj_str(env,obj),')'
+        print '    prop_num', prop_num
+        print '    result', result
+
+def get_prop_len(env, opinfo):
+    prop_data_addr = opinfo.operands[0]
+    size_and_num = env.u8(prop_data_addr-1)
+    size = (size_and_num >> 5) + 1
+    set_var(env, opinfo.store_var, size)
+    if DBG:
+        print 'op: get_prop_len'
+        print '    len', size
+
 def get_prop(env, opinfo):
     obj = opinfo.operands[0]
     prop_num = opinfo.operands[1]
 
-    result = None
-    got_default_prop = False
-    prop_list_ptr = get_prop_list_start(env, obj)
-    while env.u8(prop_list_ptr):
-        size_and_num = env.u8(prop_list_ptr)
-        num = size_and_num & 31
-        size = (size_and_num >> 5) + 1
-        if num == prop_num:
-            if size == 2:
-                result = env.u16(prop_list_ptr+1)
-                break
-            elif size == 1:
-                result = env.u8(prop_list_ptr+1)
-                break
-            else:
-                msg = 'illegal op: get_prop on outsized prop (not 1-2 bytes)'
-                msg += ' - prop '+str(prop_num)
-                msg += ' of obj '+obj+' ('+get_obj_str(obj)+')'
-                msg += ' (sized at '+size+' bytes)'
-                err(msg)
-        prop_list_ptr += 1 + size
-
-    if result == None:
+    prop_addr = _get_prop_addr(env, obj, prop_num)
+    got_default_prop = prop_addr == 0
+    if got_default_prop:
         result = get_default_prop(env, prop_num)
-        got_default_prop = True
+    else:
+        size_and_num = env.u8(prop_addr)
+        size = (size_and_num >> 5) + 1
+        if size == 2:
+            result = env.u16(prop_addr+1)
+        elif size == 1:
+            result = env.u8(prop_addr+1)
+        else:
+            msg = 'illegal op: get_prop on outsized prop (not 1-2 bytes)'
+            msg += ' - prop '+str(prop_num)
+            msg += ' of obj '+str(obj)+' ('+get_obj_str(obj)+')'
+            msg += ' (sized at '+size+' bytes)'
+            err(msg)
 
     set_var(env, opinfo.store_var, result)
 
@@ -560,7 +649,7 @@ def unpack_string(env, packed_text):
         elif mode == '10BIT_LOW':
             mode = 'NONE'
             current_10bit |= char
-            print current_10bit
+            text += zscii_to_ascii([current_10bit])
         elif char == 0:
             text.append(' ')
             currentAlphabet = A0
@@ -680,7 +769,7 @@ def zscii_to_ascii(clist):
         if c > 31 and c < 127:
             result += chr(c)
         else:
-            err('rest of zscii not yet implemented')
+           err('this zscii char not yet implemented: '+str(c))
     return result
 
 def print_char(env, opinfo):
@@ -696,9 +785,151 @@ def pop(env, opinfo):
     if DBG:
         print 'op: pop'
 
+def push(env, opinfo):
+    value = opinfo.operands[0]
+    frame = env.callstack[-1]
+    frame.stack.append(value)
+    if DBG:
+        print 'op: push'
+        print '    value', value
+
+def pull(env, opinfo):
+    var = opinfo.operands[0]
+
+    frame = env.callstack[-1]
+    if len(frame.stack) == 0:
+        err('illegal op: attempted to pull from empty stack')
+
+    result = frame.stack.pop()
+    set_var(env, var, result)
+
+    if DBG:
+        print 'op: pull'
+        print '    result', result
+
+def _random(env, opinfo):
+    range = to_signed_word(opinfo.operands[0])
+    if range < 0:
+        random.seed(range)
+        result = 0
+    elif range == 0:
+        random.seed()
+        result = 0
+    else:
+        result = random.randint(1, range)
+
 def show_status(env, opinfo):
     if DBG:
         print 'op: show_status (not yet impld)'
+        print '    operands', opinfo.operands
+
+def sound_effect(env, opinfo):
+    if DBG:
+        print 'op: sound_effect (not yet impld)'
+        print '    operands', opinfo.operands
+
+def read(env, opinfo):
+    text_buffer = opinfo.operands[0]
+    parse_buffer = opinfo.operands[1]
+
+    user_input = raw_input()
+    if DBG:
+        print 'op: read'
+        print '    user_input', user_input
+
+    text_buf_len = env.u8(text_buffer)
+    parse_buf_len = env.u8(text_buffer)
+    if text_buf_len < 2 or parse_buf_len < 1:
+        err('read error: malformed text or parse buffer')
+
+    text_buf_ptr = text_buffer + 1
+    while env.u8(text_buf_ptr):
+        text_buf_ptr += 1
+        if text_buf_ptr - text_buffer >= text_buf_len:
+            err('read error: buffer already full')
+
+    input_len = len(user_input)
+    max_len = text_buf_len-(text_buf_ptr-text_buffer)
+    for i in range(min(input_len, max_len)):
+        c = user_input[i]
+        if ord(c) > 126 or ord(c) < 32:
+            err('read: this char not impl\'d yet: '+c)
+        env.mem[text_buf_ptr + i] = ord(c.lower())
+    env.mem[text_buf_ptr + i + 1] = 0
+
+    word_separators = []
+    dict_base = env.hdr.dict_base
+    num_word_seps = env.u8(dict_base)
+    for i in range(num_word_seps):
+        word_separators.append(env.u8(dict_base+1+i))
+    
+    word = []
+    words = []
+    MAX_WORD_LEN = 6
+    scan_ptr = text_buffer + 1
+    while True:
+        c = env.u8(scan_ptr)
+
+        if c == 0:
+            if word:
+                words.append(word)
+                word = []
+            break
+
+        if c == ord(' '):
+            if word:
+                words.append(word)
+                word = []
+            scan_ptr += 1
+
+        elif c in word_separators:
+            if word:
+                words.append(word)
+                word = []
+            words.append([c])
+            scan_ptr += 1
+
+        else:
+            word.append(c)
+            if len(word) == MAX_WORD_LEN:
+                words.append(word)
+                word = []
+                scan_ptr += 1
+                c = env.u8(scan_ptr)
+                while (c != 0 and
+                       c != ord(' ') and
+                       c not in word_separators):
+                    scan_ptr += 1
+                    c = env.u8(scan_ptr)
+            else:
+                scan_ptr += 1
+
+    # Ok, this will be super-sub-optimal, just
+    # to get a working system up fast.
+    # Actual system should be:
+    # 1) Convert words to packed Z-Chars
+    # 2) Do binary search against dict
+    #
+    # The above is also necessary for correctness.
+    # Dict entries can have half a byte of a 2-byte
+    # 10-bit ZSCII char that was truncated in the
+    # entry creation process. That truncation should
+    # be recreated on user input to match those chars.
+
+    entry_length = env.u8(dict_base+1+num_word_seps)
+    num_entries = env.u16(dict_base+1+num_word_seps+1)
+    entries_start = dict_base+1+num_word_seps+1+2
+
+    for word in words:
+        wordstr = ''.join(map(chr, word))
+        for i in range(num_entries):
+            entry_addr = entries_start+i*entry_length
+            entry = [env.u16(entry_addr), env.u16(entry_addr+2)]
+            entry_unpacked = unpack_string(env, entry)
+            if wordstr == entry_unpacked:
+                print 'MATCH!: ',entry_unpacked
+    
+    sys.exit()
 
 dispatch = {}
 has_branch_var = {}
@@ -711,41 +942,116 @@ def op(opcode, f, svar=False, bvar=False, txt=False):
     has_branch_var[opcode] = bvar
     has_text[opcode] = txt
 
+op(1,   je,                         bvar=True)
+op(2,   jl,                         bvar=True)
+op(3,   jg,                         bvar=True)
 op(5,   inc_chk,                    bvar=True)
 op(6,   jin,                        bvar=True)
+op(9,   _and,          svar=True)
+op(10,  test_attr,                  bvar=True)
+op(11,  set_attr)
+op(12,  clear_attr)
 op(13,  store)
 op(14,  insert_obj)
 op(15,  loadw,         svar=True)
+op(16,  loadb,         svar=True)
+op(17,  get_prop,      svar=True)
+op(18,  get_prop_addr, svar=True)
+op(20,  add,           svar=True)
+op(21 , sub,           svar=True)
+op(23,  div,           svar=True)
+
+op(33,  je,                         bvar=True)
+op(34,  jl,                         bvar=True)
+op(35,  jg,                         bvar=True)
+op(37,  inc_chk,                    bvar=True)
+op(38,  jin,                        bvar=True)
+op(41,  _and,          svar=True)
+op(42,  test_attr,                  bvar=True)
+op(43,  set_attr)
+op(44,  clear_attr)
 op(45,  store)
+op(46,  insert_obj)
+op(47,  loadw,         svar=True)
 op(48,  loadb,         svar=True)
+op(49,  get_prop,      svar=True)
+op(50,  get_prop_addr, svar=True)
+op(52,  add,           svar=True)
+op(53,  sub,           svar=True)
+op(55,  div,           svar=True)
+
 op(65,  je,                         bvar=True)
 op(66,  jl,                         bvar=True)
 op(67,  jg,                         bvar=True)
+op(69,  inc_chk,                    bvar=True)
 op(70,  jin,                        bvar=True)
+op(73,  _and,          svar=True)
 op(74,  test_attr,                  bvar=True)
 op(75,  set_attr)
+op(76,  clear_attr)
+op(77,  store)
 op(78,  insert_obj)
 op(79,  loadw,         svar=True)
+op(80,  loadb,         svar=True)
 op(81,  get_prop,      svar=True)
+op(82,  get_prop_addr, svar=True)
 op(84,  add,           svar=True)
 op(85,  sub,           svar=True)
+op(87,  div,           svar=True)
+
 op(97,  je,                         bvar=True)
+op(98,  jl,                         bvar=True)
+op(99,  jg,                         bvar=True)
+op(101, inc_chk,                    bvar=True)
+op(102, jin,                        bvar=True)
+op(105, _and,          svar=True)
+op(106, test_attr,                  bvar=True)
+op(107, set_attr)
+op(108, clear_attr)
+op(109, store)
 op(110, insert_obj)
 op(111, loadw,         svar=True)
+op(112, loadb,         svar=True)
+op(113, get_prop,      svar=True)
+op(114, get_prop_addr, svar=True)
 op(116, add,           svar=True)
+op(117, sub,           svar=True)
+op(119, div,           svar=True)
+
+op(128, jz,                         bvar=True)
+op(129, get_sibling,   svar=True,   bvar=True)
+op(130, get_child,     svar=True,   bvar=True)
+op(131, get_parent,    svar=True)
 op(133, inc)
 op(134, dec)
+op(138, print_obj)
+op(139, ret)
 op(140, jump)
 op(141, print_paddr)
+
+op(144, jz,                         bvar=True)
+op(145, get_sibling,   svar=True,   bvar=True)
+op(146, get_child,     svar=True,   bvar=True)
+op(147, get_parent,    svar=True)
 op(149, inc)
 op(150, dec)
+op(154, print_obj)
+op(155, ret)
+op(156, jump)
+op(157, print_paddr)
+
 op(160, jz,                         bvar=True)
 op(161, get_sibling,   svar=True,   bvar=True)
 op(162, get_child,     svar=True,   bvar=True)
 op(163, get_parent,    svar=True)
+op(164, get_prop_len,  svar=True)
+op(165, inc)
+op(166, dec)
 op(170, print_obj)
 op(171, ret)
+op(172, jump)
 op(173, print_paddr)  
+
 op(176, rtrue)
 op(177, rfalse)
 op(178, _print,                                  txt=True)
@@ -753,12 +1059,35 @@ op(184, ret_popped)
 op(185, pop)
 op(187, new_line)
 op(188, show_status)
+
 op(193, je,                         bvar=True)
+op(194, jl,                         bvar=True)
+op(195, jg,                         bvar=True)
+op(197, inc_chk,                    bvar=True)
+op(198, jin,                        bvar=True)
 op(201, _and,          svar=True)
+op(202, test_attr,                  bvar=True)
+op(203, set_attr)
+op(204, clear_attr)
+op(205, store)
+op(206, insert_obj)
+op(207, loadw,         svar=True)
+op(208, loadb,         svar=True)
+op(209, get_prop,      svar=True)
+op(210, get_prop_addr, svar=True)
+op(212, add,           svar=True)
 op(213, sub,           svar=True)
+op(215, div,           svar=True)
+
 op(224, call,          svar=True)
 op(225, storew)
 op(226, storeb)
+op(227, put_prop)
+op(228, read)
 op(229, print_char)
 op(230, print_num)
+op(231, _random)
+op(232, push)
+op(233, pull)
+op(245, sound_effect)
 
