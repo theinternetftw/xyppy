@@ -31,22 +31,22 @@ def get_var(env, var_num, auto_pop_stack=True):
         g_base = env.hdr.global_var_base
         return env.u16(g_base + 2*g_idx)
 
-def set_var(env, store_var, result):
+def set_var(env, var_num, result):
     result &= 0xffff
 
-    if store_var < 0 or store_var > 0xff:
-        err('illegal store var: '+str(store_var))
+    if var_num < 0 or var_num > 0xff:
+        err('set_var: illegal var_num: '+str(var_num))
 
-    if store_var == 0:
+    if var_num == 0:
         frame = env.callstack[-1]
         frame.stack.append(result)
-    elif store_var < 16:
+    elif var_num < 16:
         frame = env.callstack[-1]
-        frame.locals[store_var - 1] = result
+        frame.locals[var_num - 1] = result
     else: # < 0xff
-        g_idx = store_var - 16
+        g_idx = var_num - 16
         g_base = env.hdr.global_var_base
-        env.mem[g_base + 2*g_idx] = result >> 0xff
+        env.mem[g_base + 2*g_idx] = result >> 8
         env.mem[g_base + 2*g_idx + 1] = result & 0xff
 
 def sub(env, opinfo):
@@ -57,7 +57,7 @@ def sub(env, opinfo):
 
     if DBG:
         print 'op: subtracting',a,'and',b
-        print '    storing',result,'in',opinfo.store_var
+        print '    storing',result,'in',get_var_name(opinfo.store_var)
 
 def add(env, opinfo):
     a = to_signed_word(opinfo.operands[0])
@@ -67,7 +67,17 @@ def add(env, opinfo):
 
     if DBG:
         print 'op: adding',a,'and',b
-        print '    storing',result,'in',opinfo.store_var
+        print '    storing',result,'in',get_var_name(opinfo.store_var)
+
+def mul(env, opinfo):
+    a = to_signed_word(opinfo.operands[0])
+    b = to_signed_word(opinfo.operands[1])
+    result = a*b
+    set_var(env, opinfo.store_var, result)
+
+    if DBG:
+        print 'op: multiplying',a,'and',b
+        print '    storing',result,'in',get_var_name(opinfo.store_var)
 
 def div(env, opinfo):
     a = to_signed_word(opinfo.operands[0])
@@ -77,19 +87,19 @@ def div(env, opinfo):
     
     if DBG:
         print 'op: diving',a,'and',b
-        print '    storing',result,'in',opinfo.store_var
+        print '    storing',result,'in',get_var_name(opinfo.store_var)
 
-def call(env, opinfo):
+def handle_call(env, packed_addr, args, store_var):
 
-    packed_addr = opinfo.operands[0]
     if packed_addr == 0:
-        set_var(env, opinfo.store_var, 0)
+        if store_var != None:
+            set_var(env, store_var, 0)
         if DBG:
             print 'op: calling 0 (returns false)'
         return
 
     return_addr = env.pc
-    call_addr = env.unpack_addr(opinfo.operands[0])
+    call_addr = env.unpack_addr(packed_addr)
     num_locals = env.u8(call_addr)
 
     # this read only necessary in v1-v4
@@ -102,28 +112,49 @@ def call(env, opinfo):
 
     code_ptr = locals_ptr
 
-    args = opinfo.operands[1:]
     # args dropped if past len of locals arr
     num_args = min(len(args), len(locals))
     for i in range(num_args):
         locals[i] = args[i]
 
-    env.callstack.append(Frame(return_addr, locals, opinfo.store_var))
+    env.callstack.append(Frame(return_addr, locals, store_var))
     env.pc = code_ptr
 
     if DBG:
-        print 'op: calling', hex(call_addr)
+        print 'helper: handle_call is calling', hex(call_addr)
         print '    returning to', hex(return_addr)
         print '    using args', args
-        print '    return val will be placed in', opinfo.store_var
+        print '    return val will be placed in', get_var_name(store_var)
         print '    num locals:', env.u8(call_addr)
         print '    local vals:', locals
         print '    code ptr:', hex(code_ptr)
         print '    first inst:', env.u8(code_ptr)
 
+def call(env, opinfo):
+    packed_addr = opinfo.operands[0]
+    args = opinfo.operands[1:]
+    handle_call(env, packed_addr, args, opinfo.store_var)
+    if DBG:
+        print 'op: call'
+
+def call_2s(env, opinfo):
+    packed_addr = opinfo.operands[0]
+    args = [opinfo.operands[1]]
+    handle_call(env, packed_addr, args, opinfo.store_var)
+    if DBG:
+        print 'op: call_2s'
+
+def call_vn(env, opinfo):
+    packed_addr = opinfo.operands[0]
+    args = opinfo.operands[1:]
+    handle_call(env, packed_addr, args, store_var=None)
+    if DBG:
+        print 'op: call_vn'
+
 def handle_return(env, return_val):
     frame = env.callstack.pop()
-    set_var(env, frame.return_val_loc, return_val)
+    if frame.return_val_loc != None:
+        set_var(env, frame.return_val_loc, return_val)
     env.pc = frame.return_addr
 
     if DBG:
@@ -131,6 +162,15 @@ def handle_return(env, return_val):
         print '    return_val', return_val
         print '    return_val_loc', frame.return_val_loc
         print '    return_addr', hex(frame.return_addr)
+
+def load(env, opinfo):
+    var = opinfo.operands[0]
+    val = get_var(env, var)
+    set_var(env, opinfo.store_var, val)
+
+    if DBG:
+        print 'op: load'
+        print '    loaded',val,'from',var,'to',opinfo.store_var
 
 def ret(env, opinfo):
     return_val = opinfo.operands[0]
@@ -176,10 +216,10 @@ def jz(env, opinfo):
 
 def je(env, opinfo):
     first = opinfo.operands[0]
-    result = True
+    result = False
     for operand in opinfo.operands[1:]:
-        if first != operand:
-            result = False
+        if first == operand:
+            result = True
             break
 
     if result == opinfo.branch_on:
@@ -257,7 +297,7 @@ def loadw(env, opinfo):
         print '    array_addr', array_addr
         print '    word_index', word_index
         print '    value', env.u16(word_loc)
-        print '    store_var', opinfo.store_var
+        print '    store_var', get_var_name(opinfo.store_var)
 
 def loadb(env, opinfo):
     array_addr = opinfo.operands[0]
@@ -271,7 +311,7 @@ def loadb(env, opinfo):
         print '    array_addr', array_addr
         print '    byte_index', byte_index
         print '    value', env.u8(byte_loc)
-        print '    store_var', opinfo.store_var
+        print '    store_var', get_var_name(opinfo.store_var)
 
 def storeb(env, opinfo):
     array_addr = opinfo.operands[0]
@@ -302,37 +342,64 @@ def storew(env, opinfo):
         print '    value', val
 
 def store(env, opinfo):
-    dest = opinfo.operands[0]
+    var = opinfo.operands[0]
     val = opinfo.operands[1]
-    set_var(env, dest, val)
+    set_var(env, var, val)
     if DBG:
-        print 'op: store', val, 'in', dest
+        print 'op: store', val, 'in', get_var_name(var)
 
 def insert_obj(env, opinfo):
     obj = opinfo.operands[0]
     dest = opinfo.operands[1]
 
-    tab = env.hdr.obj_tab_base
-    tab += 31*2 # go past default props
-
-    obj_loc = tab + 9*(obj-1)
-    dest_loc = tab + 9*(dest-1)
-    dest_child = env.u8(dest_loc+6)
+    obj_addr = get_obj_addr(env, obj)
+    dest_addr = get_obj_addr(env, dest)
+    dest_child = env.u8(dest_addr+6)
 
     # it doesn't say explicitly to make obj's parent
     # field say dest, but *surely* that's the right
     # thing to do. Right?
 
-    env.mem[obj_loc+4] = dest
-    env.mem[obj_loc+5] = dest_child
-    env.mem[dest_loc+6] = obj
+    env.mem[obj_addr+4] = dest
+    env.mem[obj_addr+5] = dest_child
+    env.mem[dest_addr+6] = obj
 
     if DBG:
         print 'op: insert_obj'
         print '    obj', obj, '(', get_obj_str(env,obj), ')'
         print '    dest', dest, '(', get_obj_str(env,dest), ')'
-        print '    obj after insert:', env.mem[obj_loc:obj_loc+9]
-        print '    dest after insert:', env.mem[dest_loc:dest_loc+9]
+        print '    obj after insert:', env.mem[obj_addr:obj_addr+9]
+        print '    dest after insert:', env.mem[dest_addr:dest_addr+9]
+
+def remove_obj(env, opinfo):
+    obj = opinfo.operands[0]
+    obj_addr = get_obj_addr(env, obj)
+
+    parent = env.mem[obj_addr+4]
+    sibling = env.mem[obj_addr+5]
+    env.mem[obj_addr+4] = 0
+    env.mem[obj_addr+5] = 0
+
+    if parent == 0:
+        return
+
+    parent_addr = get_obj_addr(env, parent)
+    if env.mem[parent_addr+6] == obj:
+        env.mem[parent_addr+6] = sibling
+    else:
+        child_num = env.mem[parent_addr+6]
+        child_addr = get_obj_addr(env, child_num)
+        sibling_num = env.mem[child_addr+5]
+        while sibling_num and sibling_num != obj:
+            child_num = sibling_num
+            child_addr = get_obj_addr(env, child_num)
+            sibling_num = env.mem[child_addr+5]
+        if sibling_num != 0:
+            env.mem[child_addr+5] = sibling
+
+    if DBG:
+        print 'op: remove_obj'
+        print '    obj', obj, '(', get_obj_str(env,obj), ')'
 
 def get_obj_addr(env, obj):
     tab = env.hdr.obj_tab_base
@@ -363,6 +430,7 @@ def get_child(env, opinfo):
     if DBG:
         print 'op: get_child ( branched =',(result==opinfo.branch_on),')'
         print '    obj', obj,'(',get_obj_str(env, obj),')'
+        print '    child', get_obj_str(env, child_num)
         print '    child_num', child_num
         print '    branch_on', opinfo.branch_on
         print '    branch_offset', opinfo.branch_offset
@@ -381,6 +449,7 @@ def get_sibling(env, opinfo):
     if DBG:
         print 'op: get_sibling ( branched =',(result==opinfo.branch_on),')'
         print '    obj', obj,'(',get_obj_str(env, obj),')'
+        print '    sibling', get_obj_str(env, sibling_num)
         print '    sibling_num', sibling_num
         print '    branch_on', opinfo.branch_on
         print '    branch_offset', opinfo.branch_offset
@@ -395,6 +464,7 @@ def get_parent(env, opinfo):
     if DBG:
         print 'op: get_parent'
         print '    obj', obj,'(',get_obj_str(env, obj),')'
+        print '    parent', get_obj_str(env, parent_num)
         print '    parent_num', parent_num
 
 def jin(env, opinfo):
@@ -412,6 +482,8 @@ def jin(env, opinfo):
         print 'op: jin ( branch =',(result==opinfo.branch_on),')'
         print '    obj1', obj1, '(',get_obj_str(env,obj1),')'
         print '    obj2', obj2, '(',get_obj_str(env,obj2),')'
+        print '    branch_offset', opinfo.branch_offset
+        print '    branch_on', opinfo.branch_on
 
 def get_obj_str(env, obj):
     obj_addr = get_obj_addr(env, obj)
@@ -454,6 +526,7 @@ def clear_attr(env, opinfo):
 
     attr_byte = attr // 8
     mask = 2**(7-attr%8)
+    old_val = env.mem[obj_addr+attr_byte]
     env.mem[obj_addr+attr_byte] &= ~mask
 
     if DBG:
@@ -462,7 +535,8 @@ def clear_attr(env, opinfo):
         print '    attr', attr
         print '    attr_byte', attr_byte
         print '    mask', mask
-        print '    new_byte_val', env.mem[obj_addr+attr_byte]
+        print '    old_val', bin(old_val)
+        print '    new_byte_val', bin(env.mem[obj_addr+attr_byte])
 
 def test_attr(env, opinfo):
     obj = opinfo.operands[0]
@@ -471,7 +545,8 @@ def test_attr(env, opinfo):
     obj_addr = get_obj_addr(env, obj)
 
     attr_byte = attr // 8
-    attr_val = env.mem[obj_addr+attr_byte] >> 7-attr%8 & 1
+    shift_amt = 7-attr%8
+    attr_val = env.mem[obj_addr+attr_byte] >> shift_amt & 1
     result = attr_val == 1
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
@@ -481,6 +556,7 @@ def test_attr(env, opinfo):
         print '    obj', obj, '(', get_obj_str(env,obj), ')'
         print '    attr', attr
         print '    attr_byte', attr_byte
+        print '    shift_amt', shift_amt
         print '    attr_byte_val', env.mem[obj_addr+attr_byte]
         print '    attr_val', attr_val
         print '    branch_on', opinfo.branch_on
@@ -492,21 +568,21 @@ def get_prop_list_start(env, obj):
     return prop_tab_addr + 1 + 2*obj_text_len_words
 
 def print_prop_list(env, obj):
-    print obj,'-',get_obj_str(env, obj)+':'
+    print '   ',obj,'-',get_obj_str(env, obj)+':'
     ptr = get_prop_list_start(env, obj)
     while env.u8(ptr):
         size_and_num = env.u8(ptr)
         num = size_and_num & 31
         size = (size_and_num >> 5) + 1
-        print 'prop #',num,' - size',size,
+        print '    prop #',num,' - size',size,
         for i in range(size):
-            print hex(env.u8(ptr+1+i)),
+            print '   ',hex(env.u8(ptr+1+i)),
         print
         ptr += 1 + size
 
 def get_default_prop(env, prop_num):
     base = env.hdr.obj_tab_base
-    return env.u16(base + 2*prop_num)
+    return env.u16(base + 2*(prop_num-1))
 
 def put_prop(env, opinfo):
     obj = opinfo.operands[0]
@@ -520,13 +596,13 @@ def put_prop(env, opinfo):
         msg += ' not found on obj '+str(obj)+' ('+get_obj_str(env, obj)+')' 
         err(msg)
     
-    size_and_num = env.u8(prop_addr)
+    size_and_num = env.u8(prop_addr-1)
     size = (size_and_num >> 5) + 1
     if size == 2:
-        env.mem[prop_addr+1] = val >> 8
-        env.mem[prop_addr+2] = val & 0xff
-    elif size == 1:
+        env.mem[prop_addr] = val >> 8
         env.mem[prop_addr+1] = val & 0xff
+    elif size == 1:
+        env.mem[prop_addr] = val & 0xff
     else:
         msg = 'illegal op: put_prop on outsized prop (not 1-2 bytes)'
         msg += ' - prop '+str(prop_num)
@@ -539,7 +615,9 @@ def put_prop(env, opinfo):
         print '    obj', obj,'(',get_obj_str(env,obj),')'
         print '    prop_num', prop_num
         print '    val', val
+        print_prop_list(env, obj)
 
+# points straight to data, so size/num is that - 1
 def _get_prop_addr(env, obj, prop_num):
     prop_ptr = get_prop_list_start(env, obj)
     while env.u8(prop_ptr):
@@ -547,7 +625,7 @@ def _get_prop_addr(env, obj, prop_num):
         num = size_and_num & 31
         size = (size_and_num >> 5) + 1
         if num == prop_num:
-            return prop_ptr
+            return prop_ptr+1
         prop_ptr += 1 + size
     return 0
 
@@ -563,6 +641,7 @@ def get_prop_addr(env, opinfo):
         print '    obj', obj,'(',get_obj_str(env,obj),')'
         print '    prop_num', prop_num
         print '    result', result
+        print_prop_list(env, obj)
 
 def get_prop_len(env, opinfo):
     prop_data_addr = opinfo.operands[0]
@@ -571,7 +650,9 @@ def get_prop_len(env, opinfo):
     set_var(env, opinfo.store_var, size)
     if DBG:
         print 'op: get_prop_len'
-        print '    len', size
+        print '    addr', prop_data_addr
+        print '    size_and_num', size_and_num
+        print '    size', size
 
 def get_prop(env, opinfo):
     obj = opinfo.operands[0]
@@ -582,12 +663,12 @@ def get_prop(env, opinfo):
     if got_default_prop:
         result = get_default_prop(env, prop_num)
     else:
-        size_and_num = env.u8(prop_addr)
+        size_and_num = env.u8(prop_addr-1)
         size = (size_and_num >> 5) + 1
         if size == 2:
-            result = env.u16(prop_addr+1)
+            result = env.u16(prop_addr)
         elif size == 1:
-            result = env.u8(prop_addr+1)
+            result = env.u8(prop_addr)
         else:
             msg = 'illegal op: get_prop on outsized prop (not 1-2 bytes)'
             msg += ' - prop '+str(prop_num)
@@ -603,6 +684,7 @@ def get_prop(env, opinfo):
         print '    prop_num', prop_num
         print '    result', result
         print '    got_default_prop', got_default_prop
+        print_prop_list(env, obj)
 
 A0 = 'abcdefghijklmnopqrstuvwxyz'
 A1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -677,6 +759,16 @@ def _print(env, opinfo):
         print 'op: print'
         print '    packed_len', len(opinfo.operands)
 
+def print_ret(env, opinfo):
+    string = unpack_string(env, opinfo.operands)+'\n'
+    sys.stdout.write(string)
+    handle_return(env, 1)
+
+    if DBG:
+        print
+        print 'op: print_ret'
+        print '    packed_len', len(opinfo.operands)
+
 # for higher version compat one day maybe
 def unpack_addr(addr):
     return addr * 2 #just v3 for now
@@ -729,7 +821,7 @@ def inc(env, opinfo):
 
     if DBG:
         print 'op: inc'
-        print '    var_num', var_num
+        print '    var', get_var_name(var_num)
         print '    new_val', to_signed_word(var_val)
 
 def dec(env, opinfo):
@@ -745,11 +837,12 @@ def dec(env, opinfo):
 
 def inc_chk(env, opinfo):
     var_loc = opinfo.operands[0]
-    chk_val = opinfo.operands[1]
+    chk_val = to_signed_word(opinfo.operands[1])
 
     var_val = to_signed_word(get_var(env, var_loc))
     var_val = var_val+1 & 0xffff
     set_var(env, var_loc, var_val)
+    var_val = to_signed_word(var_val)
     result = var_val > chk_val
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
@@ -757,8 +850,43 @@ def inc_chk(env, opinfo):
     if DBG:
         print 'op: inc_chk ( branched =',(result==opinfo.branch_on),')'
         print '    chk_val', chk_val
-        print '    var_loc', var_loc
+        print '    var_loc', get_var_name(var_loc)
         print '    var_val', var_val
+        print '    branch_on', opinfo.branch_on
+        print '    branch_offset', opinfo.branch_offset
+
+def dec_chk(env, opinfo):
+    var_loc = opinfo.operands[0]
+    chk_val = to_signed_word(opinfo.operands[1])
+
+    var_val = to_signed_word(get_var(env, var_loc))
+    var_val = var_val-1 & 0xffff
+    set_var(env, var_loc, var_val)
+    var_val = to_signed_word(var_val)
+    result = var_val < chk_val
+    if result == opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+
+    if DBG:
+        print 'op: dec_chk ( branched =',(result==opinfo.branch_on),')'
+        print '    chk_val', chk_val
+        print '    var_loc', get_var_name(var_loc)
+        print '    var_val', var_val
+        print '    branch_on', opinfo.branch_on
+        print '    branch_offset', opinfo.branch_offset
+
+def test(env, opinfo):
+    bitmap = opinfo.operands[0]
+    flags = opinfo.operands[1]
+    result = bitmap & flags == flags
+
+    if result == opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+
+    if DBG:
+        print 'op: test ( branched =',(result==opinfo.branch_on),')'
+        print '    bitmap', bin(bitmap)
+        print '    flags', bin(flags)
         print '    branch_on', opinfo.branch_on
         print '    branch_offset', opinfo.branch_offset
 
@@ -806,6 +934,7 @@ def pull(env, opinfo):
     if DBG:
         print 'op: pull'
         print '    result', result
+        print '    dest', get_var_name(var)
 
 def _random(env, opinfo):
     range = to_signed_word(opinfo.operands[0])
@@ -817,6 +946,12 @@ def _random(env, opinfo):
         result = 0
     else:
         result = random.randint(1, range)
+    set_var(env, opinfo.store_var, result)
+    
+    if DBG:
+        print 'op: random'
+        print '    range', range
+        print '    result', result
 
 def show_status(env, opinfo):
     if DBG:
@@ -833,23 +968,25 @@ def read(env, opinfo):
     parse_buffer = opinfo.operands[1]
 
     user_input = raw_input()
-    if DBG:
-        print 'op: read'
-        print '    user_input', user_input
 
     text_buf_len = env.u8(text_buffer)
-    parse_buf_len = env.u8(text_buffer)
+    parse_buf_len = env.u8(parse_buffer)
     if text_buf_len < 2 or parse_buf_len < 1:
         err('read error: malformed text or parse buffer')
 
     text_buf_ptr = text_buffer + 1
+
+    '''
+    # oops, this is for v5 (and also wrong-ish maybe?)
     while env.u8(text_buf_ptr):
         text_buf_ptr += 1
         if text_buf_ptr - text_buffer >= text_buf_len:
             err('read error: buffer already full')
+    '''
 
     input_len = len(user_input)
     max_len = text_buf_len-(text_buf_ptr-text_buffer)
+    i = 0
     for i in range(min(input_len, max_len)):
         c = user_input[i]
         if ord(c) > 126 or ord(c) < 32:
@@ -865,6 +1002,9 @@ def read(env, opinfo):
     
     word = []
     words = []
+    word_locs = []
+    word_len = 0
+    word_lens = []
     MAX_WORD_LEN = 6
     scan_ptr = text_buffer + 1
     while True:
@@ -872,25 +1012,36 @@ def read(env, opinfo):
 
         if c == 0:
             if word:
+                word_lens.append(word_len)
+                word_len = 0
                 words.append(word)
                 word = []
             break
 
         if c == ord(' '):
             if word:
+                word_lens.append(word_len)
+                word_len = 0
                 words.append(word)
                 word = []
             scan_ptr += 1
 
         elif c in word_separators:
             if word:
+                word_lens.append(word_len)
+                word_len = 0
                 words.append(word)
                 word = []
+            word_locs.append(scan_ptr-text_buffer)
+            word_lens.append(1)
             words.append([c])
             scan_ptr += 1
 
         else:
+            if not word:
+                word_locs.append(scan_ptr-text_buffer)
             word.append(c)
+            word_len += 1
             if len(word) == MAX_WORD_LEN:
                 words.append(word)
                 word = []
@@ -899,8 +1050,11 @@ def read(env, opinfo):
                 while (c != 0 and
                        c != ord(' ') and
                        c not in word_separators):
+                    word_len += 1
                     scan_ptr += 1
                     c = env.u8(scan_ptr)
+                word_lens.append(word_len)
+                word_len = 0
             else:
                 scan_ptr += 1
 
@@ -920,16 +1074,43 @@ def read(env, opinfo):
     num_entries = env.u16(dict_base+1+num_word_seps+1)
     entries_start = dict_base+1+num_word_seps+1+2
 
-    for word in words:
+    # limit to parse_buf_len (which is num words)
+    words = words[:parse_buf_len]
+    word_locs = word_locs[:parse_buf_len]
+    word_lens = word_lens[:parse_buf_len]
+
+    env.mem[parse_buffer+1] = len(words)
+    parse_ptr = parse_buffer+2
+    for word,wloc,wlen in zip(words, word_locs, word_lens):
         wordstr = ''.join(map(chr, word))
+        dict_addr = 0
         for i in range(num_entries):
             entry_addr = entries_start+i*entry_length
             entry = [env.u16(entry_addr), env.u16(entry_addr+2)]
             entry_unpacked = unpack_string(env, entry)
             if wordstr == entry_unpacked:
-                print 'MATCH!: ',entry_unpacked
-    
+                dict_addr = entry_addr
+                break
+        env.mem[parse_ptr] = dict_addr >> 8 & 0xff
+        env.mem[parse_ptr+1] = dict_addr & 0xff
+        env.mem[parse_ptr+2] = wlen
+        env.mem[parse_ptr+3] = wloc
+        parse_ptr += 4
+
+    if DBG:
+        print 'op: read'
+        print '    user_input', user_input
+
+def quit(env, opinfo):
     sys.exit()
+
+def get_var_name(var_num):
+    if var_num == 0:
+        return 'SP'
+    elif var_num < 16:
+        return 'L'+hex(var_num-1)[2:].zfill(2)
+    else:
+        return 'G'+hex(var_num-16)[2:].zfill(2)
 
 dispatch = {}
 has_branch_var = {}
@@ -945,8 +1126,10 @@ def op(opcode, f, svar=False, bvar=False, txt=False):
 op(1,   je,                         bvar=True)
 op(2,   jl,                         bvar=True)
 op(3,   jg,                         bvar=True)
+op(4,   dec_chk,                    bvar=True)
 op(5,   inc_chk,                    bvar=True)
 op(6,   jin,                        bvar=True)
+op(7,   test,                       bvar=True)
 op(9,   _and,          svar=True)
 op(10,  test_attr,                  bvar=True)
 op(11,  set_attr)
@@ -959,13 +1142,16 @@ op(17,  get_prop,      svar=True)
 op(18,  get_prop_addr, svar=True)
 op(20,  add,           svar=True)
 op(21 , sub,           svar=True)
+op(22,  mul,           svar=True)
 op(23,  div,           svar=True)
 
 op(33,  je,                         bvar=True)
 op(34,  jl,                         bvar=True)
 op(35,  jg,                         bvar=True)
+op(36,  dec_chk,                    bvar=True)
 op(37,  inc_chk,                    bvar=True)
 op(38,  jin,                        bvar=True)
+op(39,  test,                       bvar=True)
 op(41,  _and,          svar=True)
 op(42,  test_attr,                  bvar=True)
 op(43,  set_attr)
@@ -978,13 +1164,16 @@ op(49,  get_prop,      svar=True)
 op(50,  get_prop_addr, svar=True)
 op(52,  add,           svar=True)
 op(53,  sub,           svar=True)
+op(54,  mul,           svar=True)
 op(55,  div,           svar=True)
 
 op(65,  je,                         bvar=True)
 op(66,  jl,                         bvar=True)
 op(67,  jg,                         bvar=True)
+op(68,  dec_chk,                    bvar=True)
 op(69,  inc_chk,                    bvar=True)
 op(70,  jin,                        bvar=True)
+op(71,  test,                       bvar=True)
 op(73,  _and,          svar=True)
 op(74,  test_attr,                  bvar=True)
 op(75,  set_attr)
@@ -997,13 +1186,16 @@ op(81,  get_prop,      svar=True)
 op(82,  get_prop_addr, svar=True)
 op(84,  add,           svar=True)
 op(85,  sub,           svar=True)
+op(86,  mul,           svar=True)
 op(87,  div,           svar=True)
 
 op(97,  je,                         bvar=True)
 op(98,  jl,                         bvar=True)
 op(99,  jg,                         bvar=True)
+op(100, dec_chk,                    bvar=True)
 op(101, inc_chk,                    bvar=True)
 op(102, jin,                        bvar=True)
+op(103, test,                       bvar=True)
 op(105, _and,          svar=True)
 op(106, test_attr,                  bvar=True)
 op(107, set_attr)
@@ -1024,10 +1216,12 @@ op(130, get_child,     svar=True,   bvar=True)
 op(131, get_parent,    svar=True)
 op(133, inc)
 op(134, dec)
+op(137, remove_obj)
 op(138, print_obj)
 op(139, ret)
 op(140, jump)
 op(141, print_paddr)
+op(142, load,          svar=True)
 
 op(144, jz,                         bvar=True)
 op(145, get_sibling,   svar=True,   bvar=True)
@@ -1035,10 +1229,12 @@ op(146, get_child,     svar=True,   bvar=True)
 op(147, get_parent,    svar=True)
 op(149, inc)
 op(150, dec)
+op(153, remove_obj)
 op(154, print_obj)
 op(155, ret)
 op(156, jump)
 op(157, print_paddr)
+op(158, load,          svar=True)
 
 op(160, jz,                         bvar=True)
 op(161, get_sibling,   svar=True,   bvar=True)
@@ -1047,24 +1243,30 @@ op(163, get_parent,    svar=True)
 op(164, get_prop_len,  svar=True)
 op(165, inc)
 op(166, dec)
+op(169, remove_obj)
 op(170, print_obj)
 op(171, ret)
 op(172, jump)
 op(173, print_paddr)  
+op(174, load,          svar=True)
 
 op(176, rtrue)
 op(177, rfalse)
 op(178, _print,                                  txt=True)
+op(179, print_ret,                               txt=True)
 op(184, ret_popped)
 op(185, pop)
+op(186, quit)
 op(187, new_line)
 op(188, show_status)
 
 op(193, je,                         bvar=True)
 op(194, jl,                         bvar=True)
 op(195, jg,                         bvar=True)
+op(196, dec_chk,                    bvar=True)
 op(197, inc_chk,                    bvar=True)
 op(198, jin,                        bvar=True)
+op(199, test,                       bvar=True)
 op(201, _and,          svar=True)
 op(202, test_attr,                  bvar=True)
 op(203, set_attr)
@@ -1077,6 +1279,7 @@ op(209, get_prop,      svar=True)
 op(210, get_prop_addr, svar=True)
 op(212, add,           svar=True)
 op(213, sub,           svar=True)
+op(214, mul,           svar=True)
 op(215, div,           svar=True)
 
 op(224, call,          svar=True)
@@ -1086,7 +1289,7 @@ op(227, put_prop)
 op(228, read)
 op(229, print_char)
 op(230, print_num)
-op(231, _random)
+op(231, _random,       svar=True)
 op(232, push)
 op(233, pull)
 op(245, sound_effect)

@@ -210,7 +210,8 @@ def step(env):
             var_loc = env.u8(operand_ptr)
             var_value = ops.get_var(env, var_loc)
             operands.append(var_value)
-            foundVarStr += '      found '+str(var_value)+' in '+str(var_loc) + '\n'
+            varname = ops.get_var_name(var_loc)
+            foundVarStr += '      found '+str(var_value)+' in '+varname + '\n'
             operand_ptr += 1
         else:
             err('unknown operand size specified: ' + str(sizes[i]))
@@ -264,12 +265,13 @@ def step(env):
         print '      count', count
         print '      opnum', opnum
         if opinfo.store_var:
-            print '      store_var', opinfo.store_var
+            print '      store_var', ops.get_var_name(opinfo.store_var)
         if foundVarStr:
             print foundVarStr,
+        print '      sizes', sizes
         print '      operands', opinfo.operands
         print '      next_pc', hex(env.pc)
-        print '      bytes', op_hex
+        #print '      bytes', op_hex
 
     # TODO: decide if opcode should be passed or opnum
     # (i.e. is opnum specific enough, b/c that would simplify things)
@@ -284,8 +286,11 @@ def main():
         mem = f.read()
         env = Env(mem)
     
-    NUM_STEPS = 319
-    for i in range(NUM_STEPS):
+    i=0
+    while True:
+        i += 1
+        if DBG:
+            print i
         step(env)
 
 if __name__ == '__main__':
