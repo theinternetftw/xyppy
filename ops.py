@@ -358,7 +358,13 @@ def insert_obj(env, opinfo):
 
     # it doesn't say explicitly to make obj's parent
     # field say dest, but *surely* that's the right
-    # thing to do. Right?
+    # thing to do. Right? 
+    # (based on what the ops seems to expect, I think so)
+
+    # Also, should I remove it from its old parent?
+    # Looks like, based on the current bug I have.
+    _remove_obj(env, obj)
+    # Ok, Yep. That totally fixed things.
 
     env.mem[obj_addr+4] = dest
     env.mem[obj_addr+5] = dest_child
@@ -371,15 +377,13 @@ def insert_obj(env, opinfo):
         print '    obj after insert:', env.mem[obj_addr:obj_addr+9]
         print '    dest after insert:', env.mem[dest_addr:dest_addr+9]
 
-def remove_obj(env, opinfo):
-    obj = opinfo.operands[0]
+def _remove_obj(env, obj):
     obj_addr = get_obj_addr(env, obj)
 
     parent = env.mem[obj_addr+4]
     sibling = env.mem[obj_addr+5]
     env.mem[obj_addr+4] = 0
     env.mem[obj_addr+5] = 0
-
     if parent == 0:
         return
 
@@ -396,6 +400,15 @@ def remove_obj(env, opinfo):
             sibling_num = env.mem[child_addr+5]
         if sibling_num != 0:
             env.mem[child_addr+5] = sibling
+
+    if DBG:
+        print 'helper: _remove_obj'
+        print '    obj', obj, '(', get_obj_str(env,obj), ')'
+        print '    parent', parent, '(', get_obj_str(env,parent), ')'
+
+def remove_obj(env, opinfo):
+    obj = opinfo.operands[0]
+    _remove_obj(env, obj)
 
     if DBG:
         print 'op: remove_obj'
