@@ -788,19 +788,27 @@ def unpack_addr(addr):
 
 def print_paddr(env, opinfo):
     addr = unpack_addr(opinfo.operands[0])
-    packed_text = []
-    while True:
-        word = env.u16(addr)
-        addr += 2
-        packed_text.append(word)
-        if word & 0x8000:
-            break
-
-    sys.stdout.write(unpack_string(env, packed_text))
+    _print_addr(env, addr)
 
     if DBG:
         print
         print 'op: print_paddr'
+
+def _print_addr(env, addr):
+    packed_string = read_packed_string(env, addr)
+    sys.stdout.write(unpack_string(env, packed_string))
+    if DBG:
+        print
+        print 'helper: _print_addr'
+        print '        addr', addr
+
+def print_addr(env, opinfo):
+    addr = opinfo.operands[0]
+    _print_addr(env, addr)
+
+    if DBG:
+        print
+        print 'op: print_addr'
 
 def new_line(env, opinfo):
     sys.stdout.write('\n')
@@ -976,10 +984,14 @@ def sound_effect(env, opinfo):
         print 'op: sound_effect (not yet impld)'
         print '    operands', opinfo.operands
 
+def warn(msg):
+    sys.stderr.write(msg+'\n')
+
 def read(env, opinfo):
     text_buffer = opinfo.operands[0]
     parse_buffer = opinfo.operands[1]
 
+    # this will need to be more sophisticated at some point...
     user_input = raw_input()
 
     text_buf_len = env.u8(text_buffer)
@@ -1003,7 +1015,8 @@ def read(env, opinfo):
     for i in range(min(input_len, max_len)):
         c = user_input[i]
         if ord(c) > 126 or ord(c) < 32:
-            err('read: this char not impl\'d yet: '+c)
+            warn('read: this char not impl\'d yet: '+c+' / '+str(ord(c)))
+            continue
         env.mem[text_buf_ptr + i] = ord(c.lower())
     env.mem[text_buf_ptr + i + 1] = 0
 
@@ -1229,6 +1242,7 @@ op(130, get_child,     svar=True,   bvar=True)
 op(131, get_parent,    svar=True)
 op(133, inc)
 op(134, dec)
+op(135, print_addr)
 op(137, remove_obj)
 op(138, print_obj)
 op(139, ret)
@@ -1242,6 +1256,7 @@ op(146, get_child,     svar=True,   bvar=True)
 op(147, get_parent,    svar=True)
 op(149, inc)
 op(150, dec)
+op(151, print_addr)
 op(153, remove_obj)
 op(154, print_obj)
 op(155, ret)
@@ -1256,6 +1271,7 @@ op(163, get_parent,    svar=True)
 op(164, get_prop_len,  svar=True)
 op(165, inc)
 op(166, dec)
+op(167, print_addr)
 op(169, remove_obj)
 op(170, print_obj)
 op(171, ret)
