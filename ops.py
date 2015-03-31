@@ -826,6 +826,16 @@ def _and(env, opinfo):
         print '    operands', opinfo.operands
         print '    result', acc
 
+def _or(env, opinfo):
+    acc = opinfo.operands[0]
+    for operand in opinfo.operands[1:]:
+        acc |= operand
+    set_var(env, opinfo.store_var, acc)
+    if DBG:
+        print 'op: or'
+        print '    operands', opinfo.operands
+        print '    result', acc
+
 def print_num(env, opinfo):
     num = opinfo.operands[0]
     sys.stdout.write(str(num))
@@ -1156,6 +1166,7 @@ op(4,   dec_chk,                    bvar=True)
 op(5,   inc_chk,                    bvar=True)
 op(6,   jin,                        bvar=True)
 op(7,   test,                       bvar=True)
+op(8,   _or,           svar=True)
 op(9,   _and,          svar=True)
 op(10,  test_attr,                  bvar=True)
 op(11,  set_attr)
@@ -1178,6 +1189,7 @@ op(36,  dec_chk,                    bvar=True)
 op(37,  inc_chk,                    bvar=True)
 op(38,  jin,                        bvar=True)
 op(39,  test,                       bvar=True)
+op(40,  _or,           svar=True)
 op(41,  _and,          svar=True)
 op(42,  test_attr,                  bvar=True)
 op(43,  set_attr)
@@ -1200,6 +1212,7 @@ op(68,  dec_chk,                    bvar=True)
 op(69,  inc_chk,                    bvar=True)
 op(70,  jin,                        bvar=True)
 op(71,  test,                       bvar=True)
+op(72,  _or,           svar=True)
 op(73,  _and,          svar=True)
 op(74,  test_attr,                  bvar=True)
 op(75,  set_attr)
@@ -1222,6 +1235,7 @@ op(100, dec_chk,                    bvar=True)
 op(101, inc_chk,                    bvar=True)
 op(102, jin,                        bvar=True)
 op(103, test,                       bvar=True)
+op(104, _or,           svar=True)
 op(105, _and,          svar=True)
 op(106, test_attr,                  bvar=True)
 op(107, set_attr)
@@ -1296,6 +1310,7 @@ op(196, dec_chk,                    bvar=True)
 op(197, inc_chk,                    bvar=True)
 op(198, jin,                        bvar=True)
 op(199, test,                       bvar=True)
+op(200, _or,           svar=True)
 op(201, _and,          svar=True)
 op(202, test_attr,                  bvar=True)
 op(203, set_attr)
