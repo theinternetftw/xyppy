@@ -352,10 +352,6 @@ def insert_obj(env, opinfo):
     obj = opinfo.operands[0]
     dest = opinfo.operands[1]
 
-    obj_addr = get_obj_addr(env, obj)
-    dest_addr = get_obj_addr(env, dest)
-    dest_child = env.u8(dest_addr+6)
-
     # it doesn't say explicitly to make obj's parent
     # field say dest, but *surely* that's the right
     # thing to do. Right? 
@@ -365,6 +361,10 @@ def insert_obj(env, opinfo):
     # Looks like, based on the current bug I have.
     _remove_obj(env, obj)
     # Ok, Yep. That totally fixed things.
+
+    obj_addr = get_obj_addr(env, obj)
+    dest_addr = get_obj_addr(env, dest)
+    dest_child = env.u8(dest_addr+6)
 
     env.mem[obj_addr+4] = dest
     env.mem[obj_addr+5] = dest_child
