@@ -1022,13 +1022,14 @@ def read(env, opinfo):
     input_len = len(user_input)
     max_len = text_buf_len-(text_buf_ptr-text_buffer)
     i = 0
-    for i in range(min(input_len, max_len)):
+    while i < min(input_len, max_len):
         c = user_input[i]
         if ord(c) > 126 or ord(c) < 32:
             warn('read: this char not impl\'d yet: '+c+' / '+str(ord(c)))
             continue
         env.mem[text_buf_ptr + i] = ord(c.lower())
-    env.mem[text_buf_ptr + i + 1] = 0
+        i += 1
+    env.mem[text_buf_ptr + i] = 0
 
     word_separators = []
     dict_base = env.hdr.dict_base
