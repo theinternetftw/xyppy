@@ -1,7 +1,3 @@
-# this can always be changed
-# to a list if for some reason
-# dict lookup is too slow
-
 import sys
 import random
 
@@ -82,11 +78,27 @@ def mul(env, opinfo):
 def div(env, opinfo):
     a = to_signed_word(opinfo.operands[0])
     b = to_signed_word(opinfo.operands[1])
-    result = a // b
+    num_neg = (a < 0) + (b < 0)
+    result = abs(a) // abs(b)
+    if num_neg == 1:
+        result = -result
     set_var(env, opinfo.store_var, result)
     
     if DBG:
         print 'op: diving',a,'and',b
+        print '    storing',result,'in',get_var_name(opinfo.store_var)
+
+def mod(env, opinfo):
+    a = to_signed_word(opinfo.operands[0])
+    b = to_signed_word(opinfo.operands[1])
+    num_neg = (a < 0) + (b < 0)
+    result = abs(a) % abs(b)
+    if num_neg == 1:
+        result = -result
+    set_var(env, opinfo.store_var, result)
+    
+    if DBG:
+        print 'op: modding',a,'and',b
         print '    storing',result,'in',get_var_name(opinfo.store_var)
 
 def handle_call(env, packed_addr, args, store_var):
@@ -291,7 +303,7 @@ def loadw(env, opinfo):
     word_loc = array_addr + 2*word_index
 
     set_var(env, opinfo.store_var, env.u16(word_loc))
-    
+
     if DBG:
         print 'op: loadw'
         print '    array_addr', array_addr
@@ -1176,6 +1188,10 @@ def get_var_name(var_num):
     else:
         return 'G'+hex(var_num-16)[2:].zfill(2)
 
+# these can always be changed
+# to lists if for some reason
+# dict lookup is too slow
+
 dispatch = {}
 has_branch_var = {}
 has_store_var = {}
@@ -1210,6 +1226,7 @@ op(20,  add,           svar=True)
 op(21 , sub,           svar=True)
 op(22,  mul,           svar=True)
 op(23,  div,           svar=True)
+op(24,  mod,           svar=True)
 
 op(33,  je,                         bvar=True)
 op(34,  jl,                         bvar=True)
@@ -1234,6 +1251,7 @@ op(52,  add,           svar=True)
 op(53,  sub,           svar=True)
 op(54,  mul,           svar=True)
 op(55,  div,           svar=True)
+op(56,  mod,           svar=True)
 
 op(65,  je,                         bvar=True)
 op(66,  jl,                         bvar=True)
@@ -1258,6 +1276,7 @@ op(84,  add,           svar=True)
 op(85,  sub,           svar=True)
 op(86,  mul,           svar=True)
 op(87,  div,           svar=True)
+op(88,  mod,           svar=True)
 
 op(97,  je,                         bvar=True)
 op(98,  jl,                         bvar=True)
@@ -1282,6 +1301,7 @@ op(116, add,           svar=True)
 op(117, sub,           svar=True)
 op(118, mul,           svar=True)
 op(119, div,           svar=True)
+op(120, mod,           svar=True)
 
 op(128, jz,                         bvar=True)
 op(129, get_sibling,   svar=True,   bvar=True)
@@ -1361,6 +1381,7 @@ op(212, add,           svar=True)
 op(213, sub,           svar=True)
 op(214, mul,           svar=True)
 op(215, div,           svar=True)
+op(216, mod,           svar=True)
 
 op(224, call,          svar=True)
 op(225, storew)
