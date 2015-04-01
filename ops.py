@@ -667,6 +667,31 @@ def get_prop_len(env, opinfo):
         print '    size_and_num', size_and_num
         print '    size', size
 
+def get_next_prop(env, opinfo):
+    obj = opinfo.operands[0]
+    prop_num = opinfo.operands[1]
+
+    if prop_num == 0:
+        prop_start = get_prop_list_start(env, obj)
+        next_prop_num = env.u8(prop_start) & 31
+    else:
+        prop_addr = _get_prop_addr(env, obj, prop_num)
+        if prop_addr == 0:
+            msg = 'get_next_prop: passed nonexistant prop '
+            msg += str(prop_num)+' for obj '+str(obj)+' ('+get_obj_str(env,obj)+')'
+            print_prop_list(env, obj)
+            err(msg)
+        size = (env.u8(prop_addr-1) >> 5) + 1
+        next_prop_num = env.u8(prop_addr + size) & 31
+
+    set_var(env, opinfo.store_var, next_prop_num)
+
+    if DBG:
+        print 'op: get_next_prop'
+        print '    prop_num', prop_num
+        print '    next_prop_num', next_prop_num
+        print_prop_list(env, obj)
+
 def get_prop(env, opinfo):
     obj = opinfo.operands[0]
     prop_num = opinfo.operands[1]
@@ -1139,6 +1164,8 @@ def read(env, opinfo):
         print '    user_input', user_input
 
 def quit(env, opinfo):
+    if DBG:
+        print 'op: quit'
     sys.exit()
 
 def get_var_name(var_num):
@@ -1178,6 +1205,7 @@ op(15,  loadw,         svar=True)
 op(16,  loadb,         svar=True)
 op(17,  get_prop,      svar=True)
 op(18,  get_prop_addr, svar=True)
+op(19,  get_next_prop, svar=True)
 op(20,  add,           svar=True)
 op(21 , sub,           svar=True)
 op(22,  mul,           svar=True)
@@ -1201,6 +1229,7 @@ op(47,  loadw,         svar=True)
 op(48,  loadb,         svar=True)
 op(49,  get_prop,      svar=True)
 op(50,  get_prop_addr, svar=True)
+op(51,  get_next_prop, svar=True)
 op(52,  add,           svar=True)
 op(53,  sub,           svar=True)
 op(54,  mul,           svar=True)
@@ -1224,6 +1253,7 @@ op(79,  loadw,         svar=True)
 op(80,  loadb,         svar=True)
 op(81,  get_prop,      svar=True)
 op(82,  get_prop_addr, svar=True)
+op(83,  get_next_prop, svar=True)
 op(84,  add,           svar=True)
 op(85,  sub,           svar=True)
 op(86,  mul,           svar=True)
@@ -1247,14 +1277,17 @@ op(111, loadw,         svar=True)
 op(112, loadb,         svar=True)
 op(113, get_prop,      svar=True)
 op(114, get_prop_addr, svar=True)
+op(115, get_next_prop, svar=True)
 op(116, add,           svar=True)
 op(117, sub,           svar=True)
+op(118, mul,           svar=True)
 op(119, div,           svar=True)
 
 op(128, jz,                         bvar=True)
 op(129, get_sibling,   svar=True,   bvar=True)
 op(130, get_child,     svar=True,   bvar=True)
 op(131, get_parent,    svar=True)
+op(132, get_prop_len,  svar=True)
 op(133, inc)
 op(134, dec)
 op(135, print_addr)
@@ -1269,6 +1302,7 @@ op(144, jz,                         bvar=True)
 op(145, get_sibling,   svar=True,   bvar=True)
 op(146, get_child,     svar=True,   bvar=True)
 op(147, get_parent,    svar=True)
+op(148, get_prop_len,  svar=True)
 op(149, inc)
 op(150, dec)
 op(151, print_addr)
@@ -1322,6 +1356,7 @@ op(207, loadw,         svar=True)
 op(208, loadb,         svar=True)
 op(209, get_prop,      svar=True)
 op(210, get_prop_addr, svar=True)
+op(211, get_next_prop, svar=True)
 op(212, add,           svar=True)
 op(213, sub,           svar=True)
 op(214, mul,           svar=True)
