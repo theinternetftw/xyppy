@@ -1,7 +1,7 @@
 import sys
 import random
 
-from zmach import to_signed_word, to_signed_char, err, DBG
+from zmach import to_signed_word, err, DBG
 
 class Frame:
     def __init__(self, return_addr, locals=[], return_val_loc=None):
