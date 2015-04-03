@@ -519,7 +519,8 @@ def get_obj_str(env, obj):
 
 def print_obj(env, opinfo):
     obj = opinfo.operands[0]
-    sys.stdout.write(get_obj_str(env, obj))
+    string = wwrap(get_obj_str(env, obj))
+    sys.stdout.write(string)
 
     if DBG:
         print
@@ -801,8 +802,32 @@ def unpack_string(env, packed_text):
 
     return ''.join(text)
 
+# One of what may be many problems with this:
+# Assumes text starts at column 0
+def wwrap(text, width=80):
+    lines = [text]
+    idx = lines[-1].find('\n')
+    while idx != -1:
+        rest = lines.pop()
+        lines += [rest[:idx], rest[idx+1:]]
+        idx = lines[-1].find('\n')
+    def get_index_of_long_line():
+        return [i for i in range(len(lines)) if len(lines[i]) > width]
+    idxs = get_index_of_long_line()
+    while idxs:
+        i = idxs[0]
+        line = lines[i]
+        last_space = line[:width+1].rfind(' ')
+        if line != -1:
+            lines = lines[:i]+[line[:last_space],line[last_space+1:]]+lines[i+1:]
+        else:
+            lines = lines[:i]+[line[:width+1], line[width+1:]]+lines[i+1]
+        idxs = get_index_of_long_line()
+    return '\n'.join(lines)
+
 def _print(env, opinfo):
-    sys.stdout.write(unpack_string(env, opinfo.operands))
+    string = wwrap(unpack_string(env, opinfo.operands))
+    sys.stdout.write(string)
 
     if DBG:
         print
@@ -810,7 +835,7 @@ def _print(env, opinfo):
         print '    packed_len', len(opinfo.operands)
 
 def print_ret(env, opinfo):
-    string = unpack_string(env, opinfo.operands)+'\n'
+    string = wwrap(unpack_string(env, opinfo.operands)+'\n')
     sys.stdout.write(string)
     handle_return(env, 1)
 
@@ -833,7 +858,8 @@ def print_paddr(env, opinfo):
 
 def _print_addr(env, addr):
     packed_string = read_packed_string(env, addr)
-    sys.stdout.write(unpack_string(env, packed_string))
+    string = wwrap(unpack_string(env, packed_string))
+    sys.stdout.write(string)
     if DBG:
         print
         print 'helper: _print_addr'
