@@ -801,7 +801,7 @@ def handle_call(env, packed_addr, args, store_var):
         return
 
     return_addr = env.pc
-    call_addr = env.unpack_addr(packed_addr)
+    call_addr = unpack_addr(packed_addr)
     locals = setup_locals(env, call_addr)
     code_ptr = get_code_ptr(env, call_addr)
 

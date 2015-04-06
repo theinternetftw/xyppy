@@ -2,9 +2,6 @@ import sys
 
 import ops
 
-class Todo(Exception):
-    pass
-
 def err(msg):
     sys.stderr.write('err: '+msg+'\n')
     sys.exit()
@@ -153,10 +150,6 @@ class Env:
     def s8(self, i):
         c = self.u8(i)
         return to_signed_char(c)
-    def unpack_addr(self, packed_addr):
-        # handle different versions here
-        # this is just v3
-        return packed_addr*2
 
 class OpInfo:
     def __init__(self, operands, store_var=None, branch_offset=None, branch_on=None, text=None):
