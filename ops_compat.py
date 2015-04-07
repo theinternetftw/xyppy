@@ -95,8 +95,25 @@ def unpack_string(env, packed_text):
             currentAlphabet = A0
     return ''.join(text)
 
-def unpack_addr(addr):
-    return addr * 2 #just v3 for now
+def unpack_addr(addr, version, offset):
+    if version < 4:
+        return addr * 2
+    elif version < 6:
+        return addr * 4
+    elif version < 8:
+        return addr * 4 + offset * 8
+    else: #j8
+        return addr * 8
+
+def unpack_addr_call(env, addr):
+    version = env.hdr.version
+    offset = env.hdr.routine_offset
+    return unpack_addr(addr, version, offset)
+
+def unpack_addr_print_paddr(env, addr):
+    version = env.hdr.version
+    offset = env.hdr.string_offset
+    return unpack_addr(addr, version, offset)
 
 #std: 3.8
 def zscii_to_ascii(clist):
@@ -160,13 +177,15 @@ def get_default_prop(env, prop_num):
 def setup_locals(env, call_addr):
     num_locals = env.u8(call_addr)
 
-    # this read only necessary in v1-v4
-    # v5 and later auto-set them to zero
-    locals_ptr = call_addr + 1
-    locals = []
-    for i in range(num_locals):
-        locals.append(env.u16(locals_ptr))
-        locals_ptr += 2
+    if env.hdr.version < 5:
+        locals_ptr = call_addr + 1
+        locals = []
+        for i in range(num_locals):
+            locals.append(env.u16(locals_ptr))
+            locals_ptr += 2
+    else:
+        locals = [0] * num_locals
+
     return locals
 
 def get_code_ptr(env, call_addr):
@@ -213,3 +232,4 @@ def match_dict_entry(env, entry_addr, wordstr):
     entry = [env.u16(entry_addr), env.u16(entry_addr+2)]
     entry_unpacked = unpack_string(env, entry)
     return wordstr == entry_unpacked
+

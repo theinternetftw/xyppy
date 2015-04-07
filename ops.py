@@ -3,13 +3,20 @@ from ops_common import *
 dispatch = {}
 has_store_var = {}
 has_branch_var = {}
-has_text = {}
 
-def op(opcode, f, svar=False, bvar=False, txt=False):
+ext_dispatch = {}
+ext_has_store_var = {}
+ext_has_branch_var = {}
+
+def op(opcode, f, svar=False, bvar=False):
     dispatch[opcode] = f
     has_store_var[opcode] = svar
     has_branch_var[opcode] = bvar
-    has_text[opcode] = txt
+
+def ext(opcode, f, svar=False, bvar=False):
+    ext_dispatch[opcode] = f
+    ext_has_store_var[opcode] = svar
+    ext_has_branch_var[opcode] = bvar
 
 op(1,   je,                         bvar=True)
 op(2,   jl,                         bvar=True)
@@ -158,8 +165,8 @@ op(174, load,          svar=True)
 
 op(176, rtrue)
 op(177, rfalse)
-op(178, print_,                                  txt=True)
-op(179, print_ret,                               txt=True)
+op(178, print_)
+op(179, print_ret)
 op(184, ret_popped)
 op(185, pop)
 op(186, quit)

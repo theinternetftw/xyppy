@@ -1,4 +1,6 @@
 # op functions shared between all z machine versions
+# (except for a few at the end that haven't been moved yet)
+
 from zmach import to_signed_word, err, DBG
 from ops_compat import _get_prop_addr, _get_next_prop
 from ops_compat import *
@@ -507,7 +509,7 @@ def print_ret(env, opinfo):
         print '    packed_len', len(opinfo.operands)
 
 def print_paddr(env, opinfo):
-    addr = unpack_addr(opinfo.operands[0])
+    addr = unpack_addr_print_paddr(env, opinfo.operands[0])
     _print_addr(env, addr)
 
     if DBG:
@@ -801,7 +803,7 @@ def handle_call(env, packed_addr, args, store_var):
         return
 
     return_addr = env.pc
-    call_addr = unpack_addr(packed_addr)
+    call_addr = unpack_addr_call(env, packed_addr)
     locals = setup_locals(env, call_addr)
     code_ptr = get_code_ptr(env, call_addr)
 
@@ -987,3 +989,4 @@ def pull(env, opinfo):
         print 'op: pull'
         print '    result', result
         print '    dest', get_var_name(var)
+

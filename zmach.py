@@ -62,6 +62,8 @@ class Header(object):
     interp_version = u8_prop(0x1F)
 
     # everything from 0x20 to 0x36 is past V3
+    routine_offset = u16_prop(0x28)
+    string_offset = u16_prop(0x2A)
 
 class VarForm:
     pass
@@ -105,13 +107,6 @@ def get_operand_count(opcode, form):
         return VarOperand
     return TwoOperand # LongForm
 
-def get_opcode_number(opcode, form, env):
-    if form == ShortForm:
-        return opcode & 0xf
-    if form == ExtForm:
-        return env.u8(env.pc+1)
-    return opcode & 0x1f
-
 class WordSize:
     pass
 class ByteSize:
@@ -138,7 +133,7 @@ class Env:
         self.mem = map(ord,list(mem))
         self.hdr = Header(self)
         self.pc = self.hdr.pc
-        self.callstack = [ops.Frame(0)] # dummy frame only for v3
+        self.callstack = [ops.Frame(0)]
     def u16(self, i):
         high = self.u8(i)
         return (high << 8) | self.u8(i+1)
@@ -164,7 +159,9 @@ def step(env):
     opcode = env.u8(env.pc)
     form = get_opcode_form(opcode)
     count = get_operand_count(opcode, form)
-    opnum = get_opcode_number(opcode, form, env)
+
+    if form == ExtForm:
+        opcode = env.u8(env.pc+1)
 
     if form == ShortForm:
         szbyte = (opcode >> 4) & 3
@@ -175,6 +172,11 @@ def step(env):
         szbyte = env.u8(env.pc+1)
         operand_ptr = env.pc+2
         sizes = get_operand_sizes(szbyte)
+        # handle call_vn2/vs2's extra szbyte
+        if opcode == 236 or opcode == 250:
+            szbyte2 = env.u8(env.pc+2)
+            sizes += get_operand_sizes(szbyte2)
+            operand_ptr = env.pc+3
     elif form == ExtForm:
         szbyte = env.u8(env.pc+2)
         operand_ptr = env.pc+3
@@ -209,13 +211,22 @@ def step(env):
         else:
             err('unknown operand size specified: ' + str(sizes[i]))
 
+    if form == ExtForm:
+        dispatch = ops.ext_dispatch
+        has_store_var = ops.ext_has_store_var
+        has_branch_var = ops.ext_has_branch_var
+    else:
+        dispatch = ops.dispatch
+        has_store_var = ops.has_store_var
+        has_branch_var = ops.has_branch_var
+
     opinfo = OpInfo(operands)
 
-    if ops.has_store_var[opcode]:
+    if has_store_var[opcode]:
         opinfo.store_var = env.u8(operand_ptr)
         operand_ptr += 1
 
-    if ops.has_branch_var[opcode]: # std:4.7
+    if has_branch_var[opcode]: # std:4.7
         branch_info = env.u8(operand_ptr)
         operand_ptr += 1
         opinfo.branch_on = (branch_info & 128) == 128
@@ -231,7 +242,8 @@ def step(env):
                 branch_offset |= 0xc000
             opinfo.branch_offset = to_signed_word(branch_offset)
 
-    if ops.has_text[opcode]:
+    # handle print_ and print_ret's string operand
+    if form != ExtForm and (opcode == 178 or opcode == 179):
         while True:
             word = env.u16(operand_ptr)
             operand_ptr += 2
@@ -256,7 +268,6 @@ def step(env):
         print '      opcode', opcode
         print '      form', form
         print '      count', count
-        print '      opnum', opnum
         if opinfo.store_var:
             print '      store_var', ops.get_var_name(opinfo.store_var)
         if foundVarStr:
@@ -266,10 +277,7 @@ def step(env):
         print '      next_pc', hex(env.pc)
         #print '      bytes', op_hex
 
-    # TODO: decide if opcode should be passed or opnum
-    # (i.e. is opnum specific enough, b/c that would simplify things)
-    # (also, do we need to know operand types even after fetching them?)
-    ops.dispatch[opcode](env, opinfo)
+    dispatch[opcode](env, opinfo)
 
 DBG = 0
 
