@@ -8,13 +8,16 @@ from txt import *
 import random
 import sys
 
-def get_var(env, var_num):
+def get_var(env, var_num, pop_stack=True):
     frame = env.callstack[-1]
     if var_num < 0 or var_num > 0xff:
         err('illegal var num: '+str(var_num))
 
     if var_num == 0:
-        return frame.stack.pop()
+        if pop_stack:
+            return frame.stack.pop()
+        else:
+            return frame.stack[-1]
     elif var_num < 16:
         return frame.locals[var_num - 1]
     else: # < 0xff
@@ -22,7 +25,7 @@ def get_var(env, var_num):
         g_base = env.hdr.global_var_base
         return env.u16(g_base + 2*g_idx)
 
-def set_var(env, var_num, result):
+def set_var(env, var_num, result, push_stack=True):
     result &= 0xffff
 
     if var_num < 0 or var_num > 0xff:
@@ -30,7 +33,10 @@ def set_var(env, var_num, result):
 
     if var_num == 0:
         frame = env.callstack[-1]
-        frame.stack.append(result)
+        if push_stack:
+            frame.stack.append(result)
+        else:
+            frame.stack[-1] = result
     elif var_num < 16:
         frame = env.callstack[-1]
         frame.locals[var_num - 1] = result
@@ -106,7 +112,7 @@ def mod(env, opinfo):
 
 def load(env, opinfo):
     var = opinfo.operands[0]
-    val = get_var(env, var)
+    val = get_var(env, var, pop_stack=False)
     set_var(env, opinfo.store_var, val)
 
     if DBG:
@@ -257,7 +263,7 @@ def storew(env, opinfo):
 def store(env, opinfo):
     var = opinfo.operands[0]
     val = opinfo.operands[1]
-    set_var(env, var, val)
+    set_var(env, var, val, push_stack=False)
     if DBG:
         print 'op: store', val, 'in', get_var_name(var)
 
