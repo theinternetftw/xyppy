@@ -224,11 +224,13 @@ def setup_locals(env, call_addr):
 
     return locals
 
-#needs_compat_pass
 def get_code_ptr(env, call_addr):
     num_locals = env.u8(call_addr)
     # v1-v4 behavior:
-    return call_addr + 2*num_locals + 1
+    if env.hdr.version < 5:
+        return call_addr + 2*num_locals + 1
+    else:
+        return call_addr + 1
 
 #needs_compat_pass
 def fill_text_buffer(env, user_input, text_buffer, text_buf_len):
