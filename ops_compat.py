@@ -1,4 +1,5 @@
 from txt import *
+from zmach import err
 
 def get_obj_addr(env, obj):
     tab = env.hdr.obj_tab_base
