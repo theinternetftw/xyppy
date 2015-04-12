@@ -2,49 +2,68 @@ from txt import *
 
 def get_obj_addr(env, obj):
     tab = env.hdr.obj_tab_base
-    tab += 31*2 # go past default props
-    return tab + 9*(obj-1)
+    if env.hdr.version < 4:
+        tab += 31*2 # go past default props
+        return tab + 9*(obj-1)
+    else:
+        tab += 63*2 # go past default props
+        return tab + 14*(obj-1)
 
 def get_parent_num(env, obj):
     obj_addr = get_obj_addr(env, obj)
-    return env.u8(obj_addr+4)
+    if env.hdr.version < 4:
+        return env.u8(obj_addr+4)
+    else:
+        return env.u16(obj_addr+6)
 
 def get_sibling_num(env, obj):
     obj_addr = get_obj_addr(env, obj)
-    return env.u8(obj_addr+5)
+    if env.hdr.version < 4:
+        return env.u8(obj_addr+5)
+    else:
+        return env.u16(obj_addr+8)
 
 def get_child_num(env, obj):
     obj_addr = get_obj_addr(env, obj)
-    return env.u8(obj_addr+6)
+    if env.hdr.version < 4:
+        return env.u8(obj_addr+6)
+    else:
+        return env.u16(obj_addr+10)
 
 def set_parent_num(env, obj, num):
     obj_addr = get_obj_addr(env, obj)
-    env.mem[obj_addr+4] = num
+    if env.hdr.version < 4:
+        env.mem[obj_addr+4] = num
+    else:
+        env.write16(obj_addr+6, num)
 
 def set_sibling_num(env, obj, num):
     obj_addr = get_obj_addr(env, obj)
-    env.mem[obj_addr+5] = num
+    if env.hdr.version < 4:
+        env.mem[obj_addr+5] = num
+    else:
+        env.write16(obj_addr+8, num)
 
 def set_child_num(env, obj, num):
     obj_addr = get_obj_addr(env, obj)
-    env.mem[obj_addr+6] = num
+    if env.hdr.version < 4:
+        env.mem[obj_addr+6] = num
+    else:
+        env.write16(obj_addr+10, num)
 
 def get_obj_desc_addr(env, obj):
     obj_addr = get_obj_addr(env, obj)
-    obj_desc_addr = env.u16(obj_addr+7)+1
-    return obj_desc_addr
-
-# once again, prop_data_addr is right past the size_num field
-def get_sizenum_from_addr(env, prop_data_addr):
-    size_and_num = env.u8(prop_data_addr-1)
-    size = (size_and_num >> 5) + 1
-    num = size_and_num & 31
-    return size, num
+    if env.hdr.version < 4:
+        desc_addr = obj_addr+7
+    else:
+        desc_addr = obj_addr+12
+    return env.u16(desc_addr)+1 # past len byte
 
 A0 = 'abcdefghijklmnopqrstuvwxyz'
 A1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 A2 = ' \n0123456789.,!?_#\'"/\-:()'
 
+#needs_compat_pass
 def unpack_string(env, packed_text):
 
     split_text = []
@@ -116,6 +135,7 @@ def unpack_addr_print_paddr(env, addr):
     return unpack_addr(addr, version, offset)
 
 #std: 3.8
+#needs_compat_pass
 def zscii_to_ascii(clist):
     result = ''
     for c in clist:
@@ -126,10 +146,15 @@ def zscii_to_ascii(clist):
     return result
 
 def get_prop_list_start(env, obj):
-    prop_tab_addr = env.u16(get_obj_addr(env, obj)+7)
+    if env.hdr.version < 4:
+        offset = 7
+    else:
+        offset = 12
+    prop_tab_addr = env.u16(get_obj_addr(env, obj)+offset)
     obj_text_len_words = env.u8(prop_tab_addr)
     return prop_tab_addr + 1 + 2*obj_text_len_words
 
+#needs_compat_pass
 # points straight to data, so past size/num
 def _get_prop_addr(env, obj, prop_num):
     prop_ptr = get_prop_list_start(env, obj)
@@ -142,6 +167,7 @@ def _get_prop_addr(env, obj, prop_num):
         prop_ptr += 1 + size
     return 0
 
+#needs_compat_pass
 def _get_next_prop(env, obj, prop_num):
     if prop_num == 0:
         prop_start = get_prop_list_start(env, obj)
@@ -157,6 +183,7 @@ def _get_next_prop(env, obj, prop_num):
         next_prop_num = env.u8(prop_addr + size) & 31
     return next_prop_num
 
+#needs_compat_pass
 def print_prop_list(env, obj):
     print '   ',obj,'-',get_obj_str(env, obj)+':'
     ptr = get_prop_list_start(env, obj)
@@ -174,6 +201,14 @@ def get_default_prop(env, prop_num):
     base = env.hdr.obj_tab_base
     return env.u16(base + 2*(prop_num-1))
 
+#needs_compat_pass
+# prop_data_addr is right past the size_num field
+def get_sizenum_from_addr(env, prop_data_addr):
+    size_and_num = env.u8(prop_data_addr-1)
+    size = (size_and_num >> 5) + 1
+    num = size_and_num & 31
+    return size, num
+
 def setup_locals(env, call_addr):
     num_locals = env.u8(call_addr)
 
@@ -188,11 +223,13 @@ def setup_locals(env, call_addr):
 
     return locals
 
+#needs_compat_pass
 def get_code_ptr(env, call_addr):
     num_locals = env.u8(call_addr)
     # v1-v4 behavior:
     return call_addr + 2*num_locals + 1
 
+#needs_compat_pass
 def fill_text_buffer(env, user_input, text_buffer, text_buf_len):
 
     text_buf_ptr = text_buffer + 1
@@ -218,9 +255,11 @@ def fill_text_buffer(env, user_input, text_buffer, text_buf_len):
     env.mem[text_buf_ptr + i] = 0
     return i
 
+#needs_compat_pass
 def get_text_scan_ptr(text_buffer):
     return text_buffer + 1
 
+#needs_compat_pass
 def clip_word_list(words):
     MAX_WORD_LEN = 6
     for i in range(len(words)):
@@ -228,6 +267,7 @@ def clip_word_list(words):
             words[i] = words[i][:MAX_WORD_LEN]
     return words
 
+#needs_compat_pass
 def match_dict_entry(env, entry_addr, wordstr):
     entry = [env.u16(entry_addr), env.u16(entry_addr+2)]
     entry_unpacked = unpack_string(env, entry)

@@ -145,6 +145,10 @@ class Env:
     def s8(self, i):
         c = self.u8(i)
         return to_signed_char(c)
+    def write16(self, i, val):
+        val &= 0xffff
+        self.mem[i] = val >> 8
+        self.mem[i+1] = val & 0xff
 
 class OpInfo:
     def __init__(self, operands, store_var=None, branch_offset=None, branch_on=None, text=None):
@@ -173,7 +177,7 @@ def step(env):
         operand_ptr = env.pc+2
         sizes = get_operand_sizes(szbyte)
         # handle call_vn2/vs2's extra szbyte
-        if opcode == 236 or opcode == 250:
+        if opcode in [236, 250]:
             szbyte2 = env.u8(env.pc+2)
             sizes += get_operand_sizes(szbyte2)
             operand_ptr = env.pc+3
@@ -243,7 +247,7 @@ def step(env):
             opinfo.branch_offset = to_signed_word(branch_offset)
 
     # handle print_ and print_ret's string operand
-    if form != ExtForm and (opcode == 178 or opcode == 179):
+    if form != ExtForm and opcode in [178, 179]:
         while True:
             word = env.u16(operand_ptr)
             operand_ptr += 2
@@ -282,6 +286,9 @@ def step(env):
 DBG = 0
 
 def main():
+    if len(sys.argv) != 2:
+        print 'usage: python zmach.py STORY_FILE.z3'
+        sys.exit()
 
     with open(sys.argv[1], 'rb') as f:
         mem = f.read()

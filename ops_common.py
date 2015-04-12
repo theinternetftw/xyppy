@@ -43,8 +43,7 @@ def set_var(env, var_num, result, push_stack=True):
     else: # < 0xff
         g_idx = var_num - 16
         g_base = env.hdr.global_var_base
-        env.mem[g_base + 2*g_idx] = result >> 8
-        env.mem[g_base + 2*g_idx + 1] = result & 0xff
+        env.write16(g_base + 2*g_idx, result)
 
 def get_var_name(var_num):
     if var_num == 0:
@@ -238,7 +237,7 @@ def storeb(env, opinfo):
     val = opinfo.operands[2] & 0xff
 
     env.mem[array_addr+byte_index] = val
-    
+
     if DBG:
         print 'op: storeb'
         print '    array_addr', array_addr
@@ -248,12 +247,11 @@ def storeb(env, opinfo):
 def storew(env, opinfo):
     array_addr = opinfo.operands[0]
     word_index = opinfo.operands[1]
-    val = opinfo.operands[2] & 0xffff
-    word_loc = array_addr + 2*word_index
+    val = opinfo.operands[2]
 
-    env.mem[word_loc] = val >> 8
-    env.mem[word_loc+1] = val & 0xff
-    
+    word_loc = array_addr + 2*word_index
+    env.write16(word_loc, val)
+
     if DBG:
         print 'op: storew'
         print '    array_addr', array_addr
@@ -630,8 +628,7 @@ def put_prop(env, opinfo):
     
     size, num = get_sizenum_from_addr(env, prop_addr)
     if size == 2:
-        env.mem[prop_addr] = val >> 8
-        env.mem[prop_addr+1] = val & 0xff
+        env.write16(prop_addr, val)
     elif size == 1:
         env.mem[prop_addr] = val & 0xff
     else:
@@ -952,8 +949,7 @@ def read(env, opinfo):
             if match_dict_entry(env, entry_addr, wordstr):
                 dict_addr = entry_addr
                 break
-        env.mem[parse_ptr] = dict_addr >> 8 & 0xff
-        env.mem[parse_ptr+1] = dict_addr & 0xff
+        env.write16(parse_ptr, dict_addr)
         env.mem[parse_ptr+2] = wlen
         env.mem[parse_ptr+3] = wloc
         parse_ptr += 4
