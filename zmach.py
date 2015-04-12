@@ -293,7 +293,9 @@ def main():
     with open(sys.argv[1], 'rb') as f:
         mem = f.read()
         env = Env(mem)
-    
+
+    ops.setup_opcodes(env)
+
     i=0
     while True:
         i += 1
