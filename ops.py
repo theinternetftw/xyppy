@@ -134,6 +134,10 @@ def setup_opcodes(env):
     op(140, jump)
     op(141, print_paddr)
     op(142, load,          svar=True)
+    if env.hdr.version < 5:
+        op(143, not_, svar=True)
+    else:
+        op(143, call_1n)
 
     op(144, jz,                         bvar=True)
     op(145, get_sibling,   svar=True,   bvar=True)
@@ -149,6 +153,10 @@ def setup_opcodes(env):
     op(156, jump)
     op(157, print_paddr)
     op(158, load,          svar=True)
+    if env.hdr.version < 5:
+        op(159, not_, svar=True)
+    else:
+        op(159, call_1n)
 
     op(160, jz,                         bvar=True)
     op(161, get_sibling,   svar=True,   bvar=True)
@@ -164,6 +172,10 @@ def setup_opcodes(env):
     op(172, jump)
     op(173, print_paddr)  
     op(174, load,          svar=True)
+    if env.hdr.version < 5:
+        op(175, not_, svar=True)
+    else:
+        op(175, call_1n)
 
     op(176, rtrue)
     op(177, rfalse)

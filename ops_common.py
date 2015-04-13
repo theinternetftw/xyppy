@@ -551,11 +551,6 @@ def print_num(env, opinfo):
         print 'op: print_num'
         print '    num', num
 
-def get_obj_str(env, obj):
-    obj_desc_addr = get_obj_desc_addr(env, obj)
-    obj_desc_packed = read_packed_string(env, obj_desc_addr)
-    return unpack_string(env, obj_desc_packed)
-
 def print_obj(env, opinfo):
     obj = opinfo.operands[0]
     string = wwrap(get_obj_str(env, obj))
@@ -672,6 +667,12 @@ def get_next_prop(env, opinfo):
         print '    next_prop_num', next_prop_num
         print_prop_list(env, obj)
 
+def not_(env, opinfo):
+    val = ~(opinfo.operands[0])
+    set_var(env, opinfo.store_var, val)
+    if DBG:
+        print 'op: not'
+
 def insert_obj(env, opinfo):
     obj = opinfo.operands[0]
     dest = opinfo.operands[1]
@@ -727,6 +728,10 @@ def _remove_obj(env, obj):
 def remove_obj(env, opinfo):
     obj = opinfo.operands[0]
     _remove_obj(env, obj)
+
+    if DBG:
+        print 'op: remove_obj'
+        print '    obj', obj, '(', get_obj_str(env,obj), ')'
 
 def set_attr(env, opinfo):
     obj = opinfo.operands[0]
@@ -822,7 +827,10 @@ def handle_call(env, packed_addr, args, store_var):
         print 'helper: handle_call is calling', hex(call_addr)
         print '    returning to', hex(return_addr)
         print '    using args', args
-        print '    return val will be placed in', get_var_name(store_var)
+        if store_var == None:
+            print '    return val will be discarded'
+        else:
+            print '    return val will be placed in', get_var_name(store_var)
         print '    num locals:', env.u8(call_addr)
         print '    local vals:', locals
         print '    code ptr:', hex(code_ptr)
@@ -849,9 +857,12 @@ def call_vn(env, opinfo):
     if DBG:
         print 'op: call_vn'
 
+def call_1n(env, opinfo):
+    packed_addr = opinfo.operands[0]
+    args = []
+    handle_call(env, packed_addr, args, store_var=None)
     if DBG:
-        print 'op: remove_obj'
-        print '    obj', obj, '(', get_obj_str(env,obj), ')'
+        print 'op: call_1n'
 
 def read(env, opinfo):
     text_buffer = opinfo.operands[0]

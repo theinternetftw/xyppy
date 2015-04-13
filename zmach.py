@@ -3,7 +3,7 @@ import sys
 import ops
 
 def err(msg):
-    sys.stderr.write('err: '+msg+'\n')
+    sys.stderr.write('error: '+msg+'\n')
     sys.exit()
 
 def to_signed_word(word):
@@ -283,16 +283,19 @@ def step(env):
 
     dispatch[opcode](env, opinfo)
 
-DBG = 0
+DBG = 1
 
 def main():
     if len(sys.argv) != 2:
-        print 'usage: python zmach.py STORY_FILE.z3'
+        print('usage: python zmach.py STORY_FILE.z3')
         sys.exit()
 
     with open(sys.argv[1], 'rb') as f:
         mem = f.read()
         env = Env(mem)
+
+    if env.hdr.version not in range(1,8+1):
+        err('unknown z-machine version '+str(env.hdr.version))
 
     ops.setup_opcodes(env)
 

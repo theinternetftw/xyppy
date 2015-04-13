@@ -10,6 +10,11 @@ def get_obj_addr(env, obj):
         tab += 63*2 # go past default props
         return tab + 14*(obj-1)
 
+def get_obj_str(env, obj):
+    obj_desc_addr = get_obj_desc_addr(env, obj)
+    obj_desc_packed = read_packed_string(env, obj_desc_addr)
+    return unpack_string(env, obj_desc_packed)
+
 def get_parent_num(env, obj):
     obj_addr = get_obj_addr(env, obj)
     if env.hdr.version < 4:
