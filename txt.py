@@ -1,8 +1,6 @@
 import sys
 
-# One of what may be many problems with this:
-# Assumes text starts at column 0
-def wwrap(text, width=80):
+def wwrap(text, width):
     lines = [text]
     idx = lines[-1].find('\n')
     while idx != -1:
@@ -17,11 +15,19 @@ def wwrap(text, width=80):
         line = lines[i]
         last_space = line[:width+1].rfind(' ')
         if line != -1:
-            lines = lines[:i]+[line[:last_space],line[last_space+1:]]+lines[i+1:]
+            lines = lines[:i] + [line[:last_space],line[last_space+1:]] + lines[i+1:]
         else:
-            lines = lines[:i]+[line[:width+1], line[width+1:]]+lines[i+1]
+            lines = lines[:i] + [line[:width+1], line[width+1:]] + lines[i+1]
         idxs = get_index_of_long_line()
     return '\n'.join(lines)
+
+def write(env, text):
+    width = env.hdr.screen_width_units or 80
+    env.output_buffer += text
+    if '\n' in env.output_buffer or not env.use_buffered_output:
+        wrapped_text = wwrap(env.output_buffer, width)
+        sys.stdout.write(wrapped_text)
+        env.output_buffer = ''
 
 def read_packed_string(env, addr):
     packed_string = []
@@ -33,6 +39,23 @@ def read_packed_string(env, addr):
         addr += 2
     return packed_string
 
-def warn(msg):
-    sys.stderr.write(msg+'\n')
+# emulate print()'s functionality (for now?)
+def warn(*args, **kwargs):
+    if 'sep' not in kwargs:
+        kwargs['sep'] = ' '
+    if 'end' not in kwargs:
+        kwargs['end'] = '\n'
+    sep, end = kwargs['sep'], kwargs['end']
+
+    msg = ''
+    if args:
+        msg += str(args[0])
+    for arg in args[1:]:
+        msg += sep + str(arg)
+    msg += end
+    sys.stderr.write(msg)
+
+def err(msg):
+    sys.stderr.write('error: '+msg+'\n')
+    sys.exit()
 

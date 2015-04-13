@@ -257,13 +257,20 @@ def setup_opcodes(env):
     op(231, random_,       svar=True)
     op(232, push)
     op(233, pull)
+    op(234, split_window)
+    op(235, set_window)
     if env.hdr.version >= 4:
         op(236, call, svar=True) # impl's call_vs2
+        op(237, erase_window)
+        op(239, set_cursor)
         op(241, set_text_style)
+        op(242, buffer_mode)
     op(245, sound_effect)
     if env.hdr.version >= 5:
         op(248, not_, svar=True)
         op(249, call_vn)
         op(250, call_vn) # impl's call_vn2
         op(255, check_arg_count, bvar=True)
+
+        ext(4, set_font, svar=True)
 

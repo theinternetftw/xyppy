@@ -1,5 +1,4 @@
 from txt import *
-from zmach import err
 
 def get_obj_addr(env, obj):
     tab = env.hdr.obj_tab_base
@@ -229,16 +228,16 @@ def compat_get_next_prop(env, obj, prop_num):
     return next_prop_num
 
 def print_prop_list(env, obj):
-    print '   ',obj,'-',get_obj_str(env, obj)+':'
+    warn('   ',obj,'-',get_obj_str(env, obj)+':')
     ptr = get_prop_list_start(env, obj)
     while env.u8(ptr):
         num = get_prop_num(env, ptr)
         size = get_prop_size(env, ptr)
         data_ptr = get_prop_data_ptr(env, ptr)
-        print '    prop #',num,' - size',size,
+        warn('    prop #',num,' - size',size)
         for i in range(size):
-            print '   ',hex(env.u8(data_ptr+i)),
-        print
+            warn('   ',hex(env.u8(data_ptr+i)), end='')
+        warn()
         ptr = data_ptr + size
 
 def get_default_prop(env, prop_num):

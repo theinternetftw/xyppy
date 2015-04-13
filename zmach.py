@@ -1,10 +1,7 @@
 import sys
 
 import ops
-
-def err(msg):
-    sys.stderr.write('error: '+msg+'\n')
-    sys.exit()
+from txt import warn, err
 
 def to_signed_word(word):
     if word & 0x8000:
@@ -18,7 +15,7 @@ def to_signed_char(char):
 def b16_setter(base):
     def setter(self, val):
         val &= 0xffff
-        self.env.mem[base] = val >> 0xff
+        self.env.mem[base] = val >> 8
         self.env.mem[base+1] = val & 0xff
     return setter
 
@@ -58,12 +55,30 @@ class Header(object):
     abbrev_base = u16_prop(0x18)
     file_len = u16_prop(0x1A)
     file_checksum = u16_prop(0x1C)
+
+    #everything after 1C is after v3
+
     interp_number = u8_prop(0x1E)
     interp_version = u8_prop(0x1F)
 
-    # everything from 0x20 to 0x36 is past V3
-    routine_offset = u16_prop(0x28)
-    string_offset = u16_prop(0x2A)
+    screen_height_lines = u8_prop(0x20)
+    screen_width_chars = u8_prop(0x21)
+    screen_width_units = u16_prop(0x22)
+    screen_height_units = u16_prop(0x24)
+
+    font_width_units = u8_prop(0x26)
+    font_height_units = u8_prop(0x27)
+
+    routine_offset = u16_prop(0x28) #div'd by 8
+    string_offset = u16_prop(0x2A) #div'd by 8
+
+    default_bg_color = u8_prop(0x2C)
+    default_fg_color = u8_prop(0x2D)
+
+    term_chars_base = u16_prop(0x2E)
+    std_rev_number = u16_prop(0x32)
+    alpha_tab_base = u16_prop(0x34)
+    hdr_ext_tab_base = u16_prop(0x36)
 
 class VarForm:
     pass
@@ -83,14 +98,14 @@ class TwoOperand:
 class VarOperand:
     pass
 
-def get_opcode_form(opcode):
+def get_opcode_form(env, opcode):
+    if opcode == 190 and env.hdr.version >= 5:
+        return ExtForm
     sel = (opcode & 0xc0) >> 6
     if sel == 0b11:
         return VarForm
     elif sel == 0b10:
         return ShortForm
-    elif opcode == 190: # and version >= 5
-        return ExtForm
     else:
         return LongForm
 
@@ -144,6 +159,18 @@ def set_standard_flags(env):
         env.hdr.flags1 &= 0b01010000
         # fixed-space font available (bit 4 = 1)
         env.hdr.flags1 |= 0b00010000
+        # use the apple 2e interp # to fix Beyond Zork compat
+        env.hdr.interp_number = 2
+
+        env.hdr.screen_width_chars = 80
+        env.hdr.screen_height_lines = 40
+
+        env.hdr.screen_width_units = 80
+        env.hdr.screen_height_units = 40
+
+        env.hdr.font_width_units = 1
+        env.hdr.font_height_units = 1
+
 
 def check_and_set_dyn_flags(env):
     # supposed to check what game wants here and react when
@@ -162,6 +189,9 @@ class Env:
         self.hdr = Header(self)
         self.pc = self.hdr.pc
         self.callstack = [ops.Frame(0)]
+        self.output_buffer = ''
+        self.selected_ostreams = set([1])
+        self.use_buffered_output = True
         set_standard_flags(self)
     def u16(self, i):
         high = self.u8(i)
@@ -192,7 +222,7 @@ def step(env):
     check_and_set_dyn_flags(env)
 
     opcode = env.u8(env.pc)
-    form = get_opcode_form(opcode)
+    form = get_opcode_form(env, opcode)
     count = get_operand_count(opcode, form)
 
     if form == ExtForm:
@@ -299,18 +329,18 @@ def step(env):
     op_hex = hex_out(env.mem[prev_pc:env.pc])
 
     if DBG:
-        print 'step: pc', hex(prev_pc)
-        print '      opcode', opcode
-        print '      form', form
-        print '      count', count
+        warn('step: pc', hex(prev_pc))
+        warn('      opcode', opcode)
+        warn('      form', form)
+        warn('      count', count)
         if opinfo.store_var:
-            print '      store_var', ops.get_var_name(opinfo.store_var)
+            warn('      store_var', ops.get_var_name(opinfo.store_var))
         if foundVarStr:
-            print foundVarStr,
-        print '      sizes', sizes
-        print '      operands', opinfo.operands
-        print '      next_pc', hex(env.pc)
-        #print '      bytes', op_hex
+            warn(foundVarStr, end='')
+        warn('      sizes', sizes)
+        warn('      operands', opinfo.operands)
+        warn('      next_pc', hex(env.pc))
+        #warn('      bytes', op_hex)
 
     dispatch[opcode](env, opinfo)
 
@@ -334,7 +364,7 @@ def main():
     while True:
         i += 1
         if DBG:
-            print i
+            warn(i)
 
         step(env)
 
