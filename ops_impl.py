@@ -1,8 +1,9 @@
-# op functions shared between all z machine versions
-# (except for a few at the end that haven't been moved yet)
+# ops_impl.py (as in this file implements the opcodes)
+#
+# the goal here is to have no z-machine version control flow in here,
+# i.e. no 'if *.z5 then X else Y'. All that should be in ops_compat.py
 
 from zmach import to_signed_word, err, DBG
-from ops_compat import _get_prop_addr, _get_next_prop
 from ops_compat import *
 from txt import *
 import random
@@ -450,6 +451,8 @@ def get_parent(env, opinfo):
 
 def handle_return(env, return_val):
     frame = env.callstack.pop()
+    if len(env.callstack) == 0:
+        err('returned from unreturnable/nonexistant function!')
     if frame.return_val_loc != None:
         set_var(env, frame.return_val_loc, return_val)
     env.pc = frame.return_addr
@@ -575,14 +578,13 @@ def get_prop_len(env, opinfo):
     if DBG:
         print 'op: get_prop_len'
         print '    addr', prop_data_addr
-        print '    size_and_num', size_and_num
         print '    size', size
 
 def get_prop(env, opinfo):
     obj = opinfo.operands[0]
     prop_num = opinfo.operands[1]
 
-    prop_addr = _get_prop_addr(env, obj, prop_num)
+    prop_addr = compat_get_prop_addr(env, obj, prop_num)
     got_default_prop = prop_addr == 0
     if got_default_prop:
         result = get_default_prop(env, prop_num)
@@ -614,7 +616,7 @@ def put_prop(env, opinfo):
     prop_num = opinfo.operands[1]
     val = opinfo.operands[2]
 
-    prop_addr = _get_prop_addr(env, obj, prop_num)
+    prop_addr = compat_get_prop_addr(env, obj, prop_num)
     if prop_addr == 0:
         msg = 'illegal op: put_prop on nonexistant property'
         msg += ' - prop '+str(prop_num)
@@ -644,7 +646,7 @@ def get_prop_addr(env, opinfo):
     obj = opinfo.operands[0]
     prop_num = opinfo.operands[1]
 
-    result = _get_prop_addr(env, obj, prop_num)
+    result = compat_get_prop_addr(env, obj, prop_num)
     set_var(env, opinfo.store_var, result)
 
     if DBG:
@@ -795,8 +797,9 @@ def test_attr(env, opinfo):
         print '    branch_offset', opinfo.branch_offset
 
 class Frame:
-    def __init__(self, return_addr, locals=[], return_val_loc=None):
+    def __init__(self, return_addr, num_args=0, locals=[], return_val_loc=None):
         self.return_addr = return_addr
+        self.num_args = num_args
         self.locals = locals
         self.stack = []
         self.return_val_loc = return_val_loc
@@ -820,7 +823,10 @@ def handle_call(env, packed_addr, args, store_var):
     for i in range(num_args):
         locals[i] = args[i]
 
-    env.callstack.append(Frame(return_addr, locals, store_var))
+    env.callstack.append(Frame(return_addr,
+                               len(args),
+                               locals,
+                               return_val_loc=store_var))
     env.pc = code_ptr
 
     if DBG:
@@ -836,6 +842,8 @@ def handle_call(env, packed_addr, args, store_var):
         print '    code ptr:', hex(code_ptr)
         print '    first inst:', env.u8(code_ptr)
 
+# known as "call" *and* "call_vs" in the docs
+# also does the job of call_vs2
 def call(env, opinfo):
     packed_addr = opinfo.operands[0]
     args = opinfo.operands[1:]
@@ -850,6 +858,14 @@ def call_2s(env, opinfo):
     if DBG:
         print 'op: call_2s'
 
+def call_2n(env, opinfo):
+    packed_addr = opinfo.operands[0]
+    args = [opinfo.operands[1]]
+    handle_call(env, packed_addr, args, store_var=None)
+    if DBG:
+        print 'op: call_2n'
+
+# also does the job of call_vn2
 def call_vn(env, opinfo):
     packed_addr = opinfo.operands[0]
     args = opinfo.operands[1:]
@@ -857,12 +873,37 @@ def call_vn(env, opinfo):
     if DBG:
         print 'op: call_vn'
 
+def call_1s(env, opinfo):
+    packed_addr = opinfo.operands[0]
+    args = []
+    handle_call(env, packed_addr, args, opinfo.store_var)
+    if DBG:
+        print 'op: call_1s'
+
 def call_1n(env, opinfo):
     packed_addr = opinfo.operands[0]
     args = []
     handle_call(env, packed_addr, args, store_var=None)
     if DBG:
         print 'op: call_1n'
+
+def check_arg_count(env, opinfo):
+    arg_num = opinfo.operands[0]
+    frame = env.callstack[-1]
+    result = frame.num_args >= arg_num
+
+    if result == opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+        jump_info_txt = 'taken'
+    else:
+        jump_info_txt = 'not taken'
+
+    if DBG:
+        print 'op: check_arg_count ('+jump_info_txt+')'
+        print '    arg_num', arg_num
+        print '    num args in frame', frame.num_args
+        print '    branch_offset', opinfo.branch_offset
+        print '    branch_on', opinfo.branch_on
 
 def read(env, opinfo):
     text_buffer = opinfo.operands[0]
@@ -969,17 +1010,19 @@ def read(env, opinfo):
         print 'op: read'
         print '    user_input', user_input
 
-# below this line are ops that haven't yet been
-# cleared as common to all z-machines
-
 def show_status(env, opinfo):
     if DBG:
-        print 'op: show_status (not yet impld)'
+        print 'op: show_status (not impld)'
         print '    operands', opinfo.operands
 
 def sound_effect(env, opinfo):
     if DBG:
-        print 'op: sound_effect (not yet impld)'
+        print 'op: sound_effect (not impld)'
+        print '    operands', opinfo.operands
+
+def set_text_style(env, opinfo):
+    if DBG:
+        print 'op: set_text_style (not impld)'
         print '    operands', opinfo.operands
 
 def pop(env, opinfo):

@@ -69,7 +69,7 @@ A0 = 'abcdefghijklmnopqrstuvwxyz'
 A1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 A2 = ' \n0123456789.,!?_#\'"/\-:()'
 
-#needs_compat_pass
+#needs_compat_pass (i think only for v1/v2)
 def unpack_string(env, packed_text):
 
     split_text = []
@@ -160,59 +160,96 @@ def get_prop_list_start(env, obj):
     obj_text_len_words = env.u8(prop_tab_addr)
     return prop_tab_addr + 1 + 2*obj_text_len_words
 
-#needs_compat_pass
+# points at size/num
+def get_prop_size(env, prop_ptr):
+    if env.hdr.version < 4:
+        return (env.u8(prop_ptr) >> 5) + 1
+    else:
+        first_byte = env.u8(prop_ptr)
+        if first_byte & 128:
+            size_byte = env.u8(prop_ptr+1)
+            if not (size_byte & 128):
+                err('malformed prop size byte: '+bin(num_byte))
+            return (size_byte & 63) or 64 # zero len == 64
+        if first_byte & 64:
+            return 2
+        return 1
+
+# points at size/num
+def get_prop_num(env, prop_ptr):
+    num_byte = env.u8(prop_ptr)
+    if env.hdr.version < 4:
+        return num_byte & 31
+    else:
+        return num_byte & 63
+
+# points at size/num
+def get_prop_data_ptr(env, prop_ptr):
+    if env.hdr.version < 4:
+        return prop_ptr+1
+    else:
+        if env.u8(prop_ptr) & 128:
+            return prop_ptr+2
+        return prop_ptr+1
+
 # points straight to data, so past size/num
-def _get_prop_addr(env, obj, prop_num):
+def compat_get_prop_addr(env, obj, prop_num):
     prop_ptr = get_prop_list_start(env, obj)
     while env.u8(prop_ptr):
-        size_and_num = env.u8(prop_ptr)
-        num = size_and_num & 31
-        size = (size_and_num >> 5) + 1
+        num = get_prop_num(env, prop_ptr)
+        size = get_prop_size(env, prop_ptr)
+        data_ptr = get_prop_data_ptr(env, prop_ptr)
         if num == prop_num:
-            return prop_ptr+1
-        prop_ptr += 1 + size
-    return 0
+            return data_ptr
+        prop_ptr = data_ptr + size
+    return 0 # not found
 
-#needs_compat_pass
-def _get_next_prop(env, obj, prop_num):
+def get_sizenum_ptr(env, prop_data_ptr):
+    if env.hdr.version < 4:
+        return prop_data_ptr-1
+    else:
+        if env.u8(prop_data_ptr-1) & 128:
+            return prop_data_ptr-2
+        return prop_data_ptr-1
+
+def compat_get_next_prop(env, obj, prop_num):
     if prop_num == 0:
         prop_start = get_prop_list_start(env, obj)
-        next_prop_num = env.u8(prop_start) & 31
+        next_prop_num = get_prop_num(env, prop_start)
     else:
-        prop_addr = _get_prop_addr(env, obj, prop_num)
-        if prop_addr == 0:
+        prop_data_addr = compat_get_prop_addr(env, obj, prop_num)
+        if prop_data_addr == 0:
             msg = 'get_next_prop: passed nonexistant prop '
             msg += str(prop_num)+' for obj '+str(obj)+' ('+get_obj_str(env,obj)+')'
             print_prop_list(env, obj)
             err(msg)
-        size = (env.u8(prop_addr-1) >> 5) + 1
-        next_prop_num = env.u8(prop_addr + size) & 31
+        sizenum_ptr = get_sizenum_ptr(env, prop_data_addr)
+        size = get_prop_size(env, sizenum_ptr)
+        next_prop_num = get_prop_num(env, prop_data_addr + size)
     return next_prop_num
 
-#needs_compat_pass
 def print_prop_list(env, obj):
     print '   ',obj,'-',get_obj_str(env, obj)+':'
     ptr = get_prop_list_start(env, obj)
     while env.u8(ptr):
-        size_and_num = env.u8(ptr)
-        num = size_and_num & 31
-        size = (size_and_num >> 5) + 1
+        num = get_prop_num(env, ptr)
+        size = get_prop_size(env, ptr)
+        data_ptr = get_prop_data_ptr(env, ptr)
         print '    prop #',num,' - size',size,
         for i in range(size):
-            print '   ',hex(env.u8(ptr+1+i)),
+            print '   ',hex(env.u8(data_ptr+i)),
         print
-        ptr += 1 + size
+        ptr = data_ptr + size
 
 def get_default_prop(env, prop_num):
     base = env.hdr.obj_tab_base
     return env.u16(base + 2*(prop_num-1))
 
-#needs_compat_pass
 # prop_data_addr is right past the size_num field
 def get_sizenum_from_addr(env, prop_data_addr):
-    size_and_num = env.u8(prop_data_addr-1)
-    size = (size_and_num >> 5) + 1
-    num = size_and_num & 31
+    sizenum_ptr = get_sizenum_ptr(env, prop_data_addr)
+    size = get_prop_size(env, sizenum_ptr)
+    num = get_prop_num(env, sizenum_ptr)
     return size, num
 
 def setup_locals(env, call_addr):

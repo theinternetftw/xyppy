@@ -128,12 +128,41 @@ def get_operand_sizes(szbyte):
         offset -= 2
     return sizes
 
+def set_standard_flags(env):
+    if env.hdr.version < 4:
+        # no variable-spaced font (bit 6 = 0)
+        # no screen splitting available (bit 5 = 0)
+        # no status line (bit 4 = 0)
+        env.hdr.flags1 &= 0b10001111
+    else:
+        # no timed keyboard events available (bit 7 = 0)
+        # no sound effects available (bit 5 = 0)
+        # no italic available (bit 3 = 0)
+        # no boldface available (bit 2 = 0)
+        # no picture display available (bit 1 = 0)
+        # no color available (bit 0 = 0)
+        env.hdr.flags1 &= 0b01010000
+        # fixed-space font available (bit 4 = 1)
+        env.hdr.flags1 |= 0b00010000
+
+def check_and_set_dyn_flags(env):
+    # supposed to check what game wants here and react when
+    # things change, but instead let's just always clear the
+    # features we don't support which are:
+    # menus (bit 8 (flags2 is 16 bits, so bits go 0-15)
+    # sound effects (bit 7)
+    # mouse (bit 5)
+    # undo (bit 4)
+    # and pictures (bit 3)
+    env.hdr.flags2 &= 0b1111111001000111
+
 class Env:
     def __init__(self, mem):
         self.mem = map(ord,list(mem))
         self.hdr = Header(self)
         self.pc = self.hdr.pc
         self.callstack = [ops.Frame(0)]
+        set_standard_flags(self)
     def u16(self, i):
         high = self.u8(i)
         return (high << 8) | self.u8(i+1)
@@ -159,6 +188,8 @@ class OpInfo:
         self.text = text
 
 def step(env):
+
+    check_and_set_dyn_flags(env)
 
     opcode = env.u8(env.pc)
     form = get_opcode_form(opcode)
@@ -283,7 +314,7 @@ def step(env):
 
     dispatch[opcode](env, opinfo)
 
-DBG = 1
+DBG = 0
 
 def main():
     if len(sys.argv) != 2:
@@ -304,6 +335,7 @@ def main():
         i += 1
         if DBG:
             print i
+
         step(env)
 
 if __name__ == '__main__':
