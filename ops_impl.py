@@ -661,7 +661,7 @@ def get_next_prop(env, opinfo):
     obj = opinfo.operands[0]
     prop_num = opinfo.operands[1]
 
-    next_prop_num = _get_next_prop(env, obj, prop_num)
+    next_prop_num = compat_get_next_prop(env, obj, prop_num)
     set_var(env, opinfo.store_var, next_prop_num)
 
     if DBG:
