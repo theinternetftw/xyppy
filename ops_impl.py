@@ -906,9 +906,9 @@ def check_arg_count(env, opinfo):
         warn('    branch_offset', opinfo.branch_offset)
         warn('    branch_on', opinfo.branch_on)
 
-def read(env, opinfo):
-    text_buffer = opinfo.operands[0]
-    parse_buffer = opinfo.operands[1]
+def handle_read(env, text_buffer, parse_buffer, time=0, routine=0):
+
+    flush(env) # all output needs to be pushed before read
 
     text_buf_len = env.u8(text_buffer)
     parse_buf_len = env.u8(parse_buffer)
@@ -934,7 +934,7 @@ def read(env, opinfo):
     word_locs = []
     word_len = 0
     word_lens = []
-    scan_ptr = get_text_scan_ptr(text_buffer)
+    scan_ptr = get_text_scan_ptr(env, text_buffer)
     for i in range(used_buf_len):
 
         c = env.u8(scan_ptr)
@@ -969,7 +969,7 @@ def read(env, opinfo):
         word_lens.append(word_len)
         words.append(word)
 
-    words = clip_word_list(words)
+    words = clip_word_list(env, words)
 
     # Ok, this will be super-sub-optimal, just
     # to get a working system up fast.
@@ -1007,9 +1007,29 @@ def read(env, opinfo):
         env.mem[parse_ptr+3] = wloc
         parse_ptr += 4
 
+def read(env, opinfo):
+    text_buffer = opinfo.operands[0]
+    parse_buffer = opinfo.operands[1]
+
+    handle_read(env, text_buffer, parse_buffer)
+
     if DBG:
         warn('op: read')
         warn('    user_input', user_input)
+
+def read_char(env, opinfo):
+    device = opinfo.operands[0]
+    if device != 1:
+        err('read_char: first operand must be 1')
+    if len(opinfo.operands) > 1:
+        if len(opinfo.operands) != 3:
+            err('read_char: num operands must be 1 or 3')
+        if opinfo.operands[1] != 0 or opinfo.operands[2] != 0:
+            warn('read_char: interrupts not impl\'d yet!')
+    c = ord(ascii_to_zscii(getch()))
+    set_var(env, opinfo.store_var, c)
+    if DBG:
+        warn('op: read_char')
 
 def set_font(env, opinfo):
     font_num = opinfo.operands[0]
@@ -1042,25 +1062,60 @@ def pull(env, opinfo):
         warn('    result', result)
         warn('    dest', get_var_name(var))
 
+def buffer_mode(env, opinfo):
+    flag = opinfo.operands[0]
+    env.use_buffered_output = (flag == 1)
+    if DBG:
+        warn('op: buffer_mode')
+        warn('    flag', flag)
+
+def output_stream(env, opinfo):
+    flush(env)
+    stream = to_signed_word(opinfo.operands[0])
+    if stream < 0:
+        stream = abs(stream)
+        if stream == 3:
+            table_addr = env.memory_ostream_stack.pop()
+            env.output_buffer = ascii_to_zscii(env.output_buffer)
+            buflen = len(env.output_buffer)
+            env.write16(table_addr, buflen)
+            for i in range(buflen):
+                env.mem[table_addr+2+i] = env.output_buffer[i]
+            env.output_buffer = ''
+            if len(env.memory_ostream_stack) == 0:
+                env.selected_ostreams.discard(stream)
+        else:
+            env.selected_ostreams.discard(stream)
+    elif stream > 0:
+        env.selected_ostreams.add(stream)
+        if stream == 3:
+            table_addr = opinfo.operands[1]
+            if len(env.memory_ostream_stack) == 16:
+                err('too many memory-based ostreams (>16)')
+            env.memory_ostream_stack.append(table_addr)
+    if DBG:
+        warn('op: output_stream')
+        warn('    operands', opinfo.operands)
+
 def erase_window(env, opinfo):
+    write(env, '\n') # temp(?) fix for clarity
     if DBG:
         warn('op: erase_window (not impld)')
 
 def split_window(env, opinfo):
+    write(env, '\n') # temp(?) fix for clarity
     if DBG:
         warn('op: split_window (not impld)')
 
 def set_window(env, opinfo):
+    write(env, '\n') # temp(?) fix for clarity
     if DBG:
         warn('op: set_window (not impld)')
 
 def set_cursor(env, opinfo):
+    write(env, '\n') # temp(?) fix for clarity
     if DBG:
         warn('op: set_cursor (not impld)')
-
-def buffer_mode(env, opinfo):
-    if DBG:
-        warn('op: buffer_mode (not impld)')
 
 def show_status(env, opinfo):
     if DBG:

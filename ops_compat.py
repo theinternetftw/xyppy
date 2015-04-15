@@ -150,6 +150,19 @@ def zscii_to_ascii(clist):
            err('this zscii char not yet implemented: '+str(c))
     return result
 
+#std: 3.8
+#needs_compat_pass
+def ascii_to_zscii(string):
+    result = ''
+    for c in string:
+        if c == '\n':
+            result += '\r'
+        elif c == '\r' or (ord(c) > 31 and ord(c) < 127):
+            result += c
+        else:
+           err('this zscii char not yet implemented: '+str(c))
+    return result
+
 def get_prop_list_start(env, obj):
     if env.hdr.version < 4:
         offset = 7
@@ -278,12 +291,9 @@ def fill_text_buffer(env, user_input, text_buffer, text_buf_len):
 
     text_buf_ptr = text_buffer + 1
 
-    '''
-    # this is for v5's fill_text_buffer
-    # (remember to go back and write the length, too)
-    if env.u8(text_buf_ptr):
-        text_buf_ptr += env.u8(text_buf_ptr)+1
-    '''
+    if env.hdr.version >= 5:
+        if env.u8(text_buf_ptr):
+            text_buf_ptr += env.u8(text_buf_ptr)+1
 
     i = 0
     max_len = text_buf_len-(text_buf_ptr-text_buffer)
@@ -299,21 +309,34 @@ def fill_text_buffer(env, user_input, text_buffer, text_buf_len):
     env.mem[text_buf_ptr + i] = 0
     return i
 
-#needs_compat_pass
-def get_text_scan_ptr(text_buffer):
-    return text_buffer + 1
+def get_text_scan_ptr(env, text_buffer):
+    if env.hdr.version < 5:
+        return text_buffer + 1
+    else:
+        return text_buffer + 2
 
-#needs_compat_pass
-def clip_word_list(words):
-    MAX_WORD_LEN = 6
+def clip_word_list(env, words):
+    if env.hdr.version <= 3:
+        MAX_WORD_LEN = 6
+    else:
+        MAX_WORD_LEN = 9
     for i in range(len(words)):
         if len(words[i]) > MAX_WORD_LEN:
             words[i] = words[i][:MAX_WORD_LEN]
     return words
 
-#needs_compat_pass
+# REMEMBER: not quite right: correct thing to do
+# is encode the wordstr, chop it to correct # of
+# bytes, then compare in numeric binary search to 
+# dict entries (this handles 2-byte chars, etc)
 def match_dict_entry(env, entry_addr, wordstr):
-    entry = [env.u16(entry_addr), env.u16(entry_addr+2)]
+    if env.hdr.version <= 3:
+        entry = [env.u16(entry_addr),
+                 env.u16(entry_addr+2)]
+    else:
+        entry = [env.u16(entry_addr),
+                 env.u16(entry_addr+2),
+                 env.u16(entry_addr+4)]
     entry_unpacked = unpack_string(env, entry)
     return wordstr == entry_unpacked
 

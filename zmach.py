@@ -189,9 +189,12 @@ class Env:
         self.hdr = Header(self)
         self.pc = self.hdr.pc
         self.callstack = [ops.Frame(0)]
+
         self.output_buffer = ''
         self.selected_ostreams = set([1])
+        self.memory_ostream_stack = []
         self.use_buffered_output = True
+
         set_standard_flags(self)
     def u16(self, i):
         high = self.u8(i)

@@ -265,7 +265,10 @@ def setup_opcodes(env):
         op(239, set_cursor)
         op(241, set_text_style)
         op(242, buffer_mode)
+    op(243, output_stream)
     op(245, sound_effect)
+    if env.hdr.version >= 4:
+        op(246, read_char, svar=True)
     if env.hdr.version >= 5:
         op(248, not_, svar=True)
         op(249, call_vn)

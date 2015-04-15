@@ -24,10 +24,16 @@ def wwrap(text, width):
 def write(env, text):
     width = env.hdr.screen_width_units or 80
     env.output_buffer += text
-    if '\n' in env.output_buffer or not env.use_buffered_output:
-        wrapped_text = wwrap(env.output_buffer, width)
-        sys.stdout.write(wrapped_text)
-        env.output_buffer = ''
+    if 1 in env.selected_ostreams:
+        if '\n' in env.output_buffer or not env.use_buffered_output:
+            sys.stdout.write(wwrap(env.output_buffer, width))
+            env.output_buffer = ''
+
+def flush(env):
+    if 3 not in env.selected_ostreams:
+        if 1 in env.selected_ostreams:
+            sys.stdout.write(env.output_buffer)
+    env.output_buffer = ''
 
 def read_packed_string(env, addr):
     packed_string = []
@@ -58,4 +64,41 @@ def warn(*args, **kwargs):
 def err(msg):
     sys.stderr.write('error: '+msg+'\n')
     sys.exit()
+
+# right from http://code.activestate.com/recipes/134892/
+class _Getch:
+    """Gets a single character from standard input.  Does not echo to the
+screen."""
+    def __init__(self):
+        try:
+            self.impl = _GetchWindows()
+        except ImportError:
+            self.impl = _GetchUnix()
+
+    def __call__(self): return self.impl()
+
+class _GetchUnix:
+    def __init__(self):
+        import tty, sys
+
+    def __call__(self):
+        import sys, tty, termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
+class _GetchWindows:
+    def __init__(self):
+        import msvcrt
+
+    def __call__(self):
+        import msvcrt
+        return msvcrt.getch()
+
+getch = _Getch()
 
