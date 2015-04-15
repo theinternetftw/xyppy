@@ -13,11 +13,11 @@ def wwrap(text, width):
     while idxs:
         i = idxs[0]
         line = lines[i]
-        last_space = line[:width+1].rfind(' ')
-        if line != -1:
+        last_space = line[:width].rfind(' ')
+        if last_space != -1:
             lines = lines[:i] + [line[:last_space],line[last_space+1:]] + lines[i+1:]
         else:
-            lines = lines[:i] + [line[:width+1], line[width+1:]] + lines[i+1]
+            lines = lines[:i] + [line[:width], line[width:]] + lines[i+1:]
         idxs = get_index_of_long_line()
     return '\n'.join(lines)
 
