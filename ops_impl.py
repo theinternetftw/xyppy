@@ -101,9 +101,8 @@ def div(env, opinfo):
 def mod(env, opinfo):
     a = to_signed_word(opinfo.operands[0])
     b = to_signed_word(opinfo.operands[1])
-    num_neg = (a < 0) + (b < 0)
     result = abs(a) % abs(b)
-    if num_neg == 1:
+    if a < 0: # spec says a determines sign
         result = -result
     set_var(env, opinfo.store_var, result)
     
@@ -207,7 +206,7 @@ def jump(env, opinfo):
 
 def loadw(env, opinfo):
     array_addr = opinfo.operands[0]
-    word_index = opinfo.operands[1]
+    word_index = to_signed_word(opinfo.operands[1])
     word_loc = array_addr + 2*word_index
 
     set_var(env, opinfo.store_var, env.u16(word_loc))
@@ -221,7 +220,7 @@ def loadw(env, opinfo):
 
 def loadb(env, opinfo):
     array_addr = opinfo.operands[0]
-    byte_index = opinfo.operands[1]
+    byte_index = to_signed_word(opinfo.operands[1])
     byte_loc = array_addr + byte_index
 
     set_var(env, opinfo.store_var, env.u8(byte_loc))
@@ -235,7 +234,7 @@ def loadb(env, opinfo):
 
 def storeb(env, opinfo):
     array_addr = opinfo.operands[0]
-    byte_index = opinfo.operands[1]
+    byte_index = to_signed_word(opinfo.operands[1])
     val = opinfo.operands[2] & 0xff
 
     env.mem[array_addr+byte_index] = val
@@ -248,7 +247,7 @@ def storeb(env, opinfo):
 
 def storew(env, opinfo):
     array_addr = opinfo.operands[0]
-    word_index = opinfo.operands[1]
+    word_index = to_signed_word(opinfo.operands[1])
     val = opinfo.operands[2]
 
     word_loc = array_addr + 2*word_index
@@ -574,12 +573,20 @@ def print_char(env, opinfo):
 
 def get_prop_len(env, opinfo):
     prop_data_addr = opinfo.operands[0]
-    size, num = get_sizenum_from_addr(env, prop_data_addr)
+    if prop_data_addr == 0: # to spec
+        size = 0
+    else:
+        size, num = get_sizenum_from_addr(env, prop_data_addr)
     set_var(env, opinfo.store_var, size)
     if DBG:
         warn('op: get_prop_len')
         warn('    addr', prop_data_addr)
         warn('    size', size)
+
+# seems to be needed for practicality
+# test case:
+# Delusions (input: any_key, e, wait)
+FORGIVING_GET_PROP = True
 
 def get_prop(env, opinfo):
     obj = opinfo.operands[0]
@@ -591,10 +598,10 @@ def get_prop(env, opinfo):
         result = get_default_prop(env, prop_num)
     else:
         size, num = get_sizenum_from_addr(env, prop_addr)
-        if size == 2:
-            result = env.u16(prop_addr)
-        elif size == 1:
+        if size == 1:
             result = env.u8(prop_addr)
+        elif size == 2 or FORGIVING_GET_PROP:
+            result = env.u16(prop_addr)
         else:
             msg = 'illegal op: get_prop on outsized prop (not 1-2 bytes)'
             msg += ' - prop '+str(prop_num)
@@ -648,7 +655,12 @@ def get_prop_addr(env, opinfo):
     obj = opinfo.operands[0]
     prop_num = opinfo.operands[1]
 
-    result = compat_get_prop_addr(env, obj, prop_num)
+    if obj == 0:
+        # from testing, this seems
+        # to be the expected behavior
+        result = 0
+    else:
+        result = compat_get_prop_addr(env, obj, prop_num)
     set_var(env, opinfo.store_var, result)
 
     if DBG:
@@ -656,7 +668,8 @@ def get_prop_addr(env, opinfo):
         warn('    obj', obj,'(',get_obj_str(env,obj),')')
         warn('    prop_num', prop_num)
         warn('    result', result)
-        print_prop_list(env, obj)
+        if obj:
+            print_prop_list(env, obj)
 
 def get_next_prop(env, opinfo):
     obj = opinfo.operands[0]
@@ -937,9 +950,16 @@ def handle_read(env, text_buffer, parse_buffer, time=0, routine=0):
 
 def aread(env, opinfo):
     text_buffer = opinfo.operands[0]
-    parse_buffer = opinfo.operands[1]
+    if len(opinfo.operands) > 1:
+        parse_buffer = opinfo.operands[1]
+    else:
+        parse_buffer = 0
+    if len(opinfo.operands) == 4:
+        time, routine = opinfo.operands[2:4]
+    else:
+        time, routine = 0, 0
 
-    end_char = handle_read(env, text_buffer, parse_buffer)
+    end_char = handle_read(env, text_buffer, parse_buffer, time, routine)
     set_var(env, opinfo.store_var, end_char)
 
     if DBG:
@@ -947,13 +967,16 @@ def aread(env, opinfo):
 
 def sread(env, opinfo):
     text_buffer = opinfo.operands[0]
-    parse_buffer = opinfo.operands[1]
+    if len(opinfo.operands) > 1:
+        parse_buffer = opinfo.operands[1]
+    else:
+        parse_buffer = 0
     if len(opinfo.operands) == 4:
         time, routine = opinfo.operands[2:4]
     else:
         time, routine = 0, 0
 
-    handle_read(env, text_buffer, parse_buffer)
+    handle_read(env, text_buffer, parse_buffer, time, routine)
 
     if DBG:
         warn('op: sread')
@@ -996,8 +1019,10 @@ def set_font(env, opinfo):
     font_num = opinfo.operands[0]
     if font_num == 0:
         set_var(env, opinfo.store_var, 1)
-    elif font_num != 1:
+    if font_num != 1:
         set_var(env, opinfo.store_var, 0)
+    else:
+        set_var(env, opinfo.store_var, 1)
     if DBG:
         warn('op: set_font')
         warn('    font_num', font_num)
@@ -1016,7 +1041,7 @@ def pull(env, opinfo):
         err('illegal op: attempted to pull from empty stack')
 
     result = frame.stack.pop()
-    set_var(env, var, result)
+    set_var(env, var, result, push_stack=False)
 
     if DBG:
         warn('op: pull')
@@ -1062,6 +1087,61 @@ def restart(env, opinfo):
     env.reset()
     if DBG:
         warn('op: restart')
+
+def log_shift(env, opinfo):
+    number = opinfo.operands[0]
+    places = to_signed_word(opinfo.operands[1])
+    if places < 0:
+        result = number >> abs(places)
+    else:
+        result = number << places
+    set_var(env, opinfo.store_var, result)
+    if DBG:
+        warn('op: log_shift')
+        warn('    result',result)
+
+def art_shift(env, opinfo):
+    number = to_signed_word(opinfo.operands[0])
+    places = to_signed_word(opinfo.operands[1])
+    if places < 0:
+        result = number >> abs(places)
+    else:
+        result = number << places
+    set_var(env, opinfo.store_var, result)
+    if DBG:
+        warn('op: log_shift')
+        warn('    result',result)
+
+def get_file_len(env):
+    if env.hdr.version < 4:
+        return 2*env.hdr.file_len
+    elif env.hdr.version < 6:
+        return 4*env.hdr.file_len
+    else:
+        return 8*env.hdr.file_len
+
+def verify(env, opinfo):
+    sum = 0
+    for i in range(0x40, get_file_len(env)):
+        sum += ord(env.orig_mem[i])
+    sum &= 0xffff
+    result = sum == env.hdr.file_checksum
+
+    if result == opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+        jump_info_txt = 'taken'
+    else:
+        jump_info_txt = 'not taken'
+
+    if DBG:
+        warn('op: verify ('+jump_info_txt+')')
+        warn('    sum', sum)
+        warn('    checksum in header', env.hdr.file_checksum)
+
+def piracy(env, opinfo):
+    handle_branch(env, opinfo.branch_offset)
+    if DBG:
+        warn('op: piracy')
 
 def erase_window(env, opinfo):
     write(env, '\n') # temp(?) fix for clarity

@@ -215,6 +215,9 @@ def setup_opcodes(env):
         op(188, show_status)
     else:
         pass # illegal opcode
+    op(189, verify,        bvar=True)
+    # 190 == extended opcode start
+    op(191, piracy,        bvar=True)
 
     op(193, je,                         bvar=True)
     op(194, jl,                         bvar=True)
@@ -277,6 +280,8 @@ def setup_opcodes(env):
         op(251, tokenize)
         op(255, check_arg_count, bvar=True)
 
+        ext(2, log_shift, svar=True)
+        ext(3, art_shift, svar=True)
         ext(4, set_font, svar=True)
         ext(9, save_undo, svar=True)
 

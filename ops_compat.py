@@ -144,6 +144,9 @@ def unpack_addr_print_paddr(env, addr):
 def zscii_to_ascii(clist):
     result = ''
     for c in clist:
+        if c == 0:
+            # 0 == no effect in zscii
+            continue
         if c > 31 and c < 127:
             result += chr(c)
         else:
@@ -183,6 +186,7 @@ def get_prop_size(env, prop_ptr):
             if not (size_byte & 128):
                 msg = 'malformed prop size byte: '+bin(size_byte)
                 msg += ' - first_byte:'+bin(first_byte)
+                msg += ' - prop_ptr:'+hex(prop_ptr)
                 err(msg)
             return (size_byte & 63) or 64 # zero len == 64
         if first_byte & 64:
