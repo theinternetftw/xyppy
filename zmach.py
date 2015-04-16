@@ -195,6 +195,9 @@ class Env:
         self.memory_ostream_stack = []
         self.use_buffered_output = True
 
+        self.current_window = 0
+        self.top_window_height = 0
+
         set_standard_flags(self)
     def u16(self, i):
         high = self.u8(i)

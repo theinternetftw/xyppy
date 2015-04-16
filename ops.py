@@ -248,10 +248,10 @@ def setup_opcodes(env):
     op(225, storew)
     op(226, storeb)
     op(227, put_prop)
-    if env.hdr.version < 4:
-        op(228, read)
+    if env.hdr.version <= 4:
+        op(228, sread)
     else:
-        pass # different signatures of read (not impld yet)
+        op(228, aread, svar=True)
     op(229, print_char)
     op(230, print_num)
     op(231, random_,       svar=True)
@@ -273,7 +273,9 @@ def setup_opcodes(env):
         op(248, not_, svar=True)
         op(249, call_vn)
         op(250, call_vn) # impl's call_vn2
+        op(251, tokenize)
         op(255, check_arg_count, bvar=True)
 
         ext(4, set_font, svar=True)
+        ext(9, save_undo, svar=True)
 

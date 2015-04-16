@@ -598,8 +598,9 @@ def get_prop(env, opinfo):
         else:
             msg = 'illegal op: get_prop on outsized prop (not 1-2 bytes)'
             msg += ' - prop '+str(prop_num)
-            msg += ' of obj '+str(obj)+' ('+get_obj_str(obj)+')'
-            msg += ' (sized at '+size+' bytes)'
+            msg += ' of obj '+str(obj)+' ('+get_obj_str(env, obj)+')'
+            msg += ' (sized at '+str(size)+' bytes)'
+            print_prop_list(env, obj)
             err(msg)
 
     set_var(env, opinfo.store_var, result)
@@ -906,116 +907,77 @@ def check_arg_count(env, opinfo):
         warn('    branch_offset', opinfo.branch_offset)
         warn('    branch_on', opinfo.branch_on)
 
+def ascii_to_zscii_char(c):
+    if ord(c) > 126 or ord(c) < 32:
+        #warn('read: this char not impl\'d yet: '+c+' / '+str(ord(c)))
+        return '?'
+    return c
+
+def get_line_of_input():
+    # this will need to be more sophisticated at some point...
+    return ''.join(map(ascii_to_zscii_char, raw_input()))
+
 def handle_read(env, text_buffer, parse_buffer, time=0, routine=0):
+
+    if time != 0 or routine != 0:
+        warn('warning: interrupts requested but not impl\'d yet!')
 
     flush(env) # all output needs to be pushed before read
 
-    text_buf_len = env.u8(text_buffer)
-    parse_buf_len = env.u8(parse_buffer)
+    user_input = get_line_of_input()
 
-    if text_buf_len < 2:
-        err('read error: malformed text buffer')
-    if parse_buf_len < 1:
-        err('read error: malformed parse buffer')
+    fill_text_buffer(env, user_input, text_buffer)
 
-    # this will need to be more sophisticated at some point...
-    user_input = raw_input()
+    if env.hdr.version < 5 or parse_buffer != 0:
+        handle_parse(env, text_buffer, parse_buffer)
 
-    used_buf_len = fill_text_buffer(env, user_input, text_buffer, text_buf_len)
+    # return ord('\r') as term char for now... 
+    # TODO: the right thing 
+    return ord('\r')
 
-    word_separators = []
-    dict_base = env.hdr.dict_base
-    num_word_seps = env.u8(dict_base)
-    for i in range(num_word_seps):
-        word_separators.append(env.u8(dict_base+1+i))
-
-    word = []
-    words = []
-    word_locs = []
-    word_len = 0
-    word_lens = []
-    scan_ptr = get_text_scan_ptr(env, text_buffer)
-    for i in range(used_buf_len):
-
-        c = env.u8(scan_ptr)
-
-        if c == ord(' '):
-            if word:
-                word_lens.append(word_len)
-                word_len = 0
-                words.append(word)
-                word = []
-            scan_ptr += 1
-
-        elif c in word_separators:
-            if word:
-                word_lens.append(word_len)
-                word_len = 0
-                words.append(word)
-                word = []
-            word_locs.append(scan_ptr-text_buffer)
-            word_lens.append(1)
-            words.append([c])
-            scan_ptr += 1
-
-        else:
-            if not word:
-                word_locs.append(scan_ptr-text_buffer)
-            word.append(c)
-            word_len += 1
-            scan_ptr += 1
-
-    if word:
-        word_lens.append(word_len)
-        words.append(word)
-
-    words = clip_word_list(env, words)
-
-    # Ok, this will be super-sub-optimal, just
-    # to get a working system up fast.
-    # Actual system should be:
-    # 1) Convert words to packed Z-Chars
-    # 2) Do binary search against dict
-    #
-    # The above is also necessary for correctness.
-    # Dict entries can have half a byte of a 2-byte
-    # 10-bit ZSCII char that was truncated in the
-    # entry creation process. That truncation should
-    # be recreated on user input to match those chars.
-
-    entry_length = env.u8(dict_base+1+num_word_seps)
-    num_entries = env.u16(dict_base+1+num_word_seps+1)
-    entries_start = dict_base+1+num_word_seps+1+2
-
-    # limit to parse_buf_len (which is num words)
-    words = words[:parse_buf_len]
-    word_locs = word_locs[:parse_buf_len]
-    word_lens = word_lens[:parse_buf_len]
-
-    env.mem[parse_buffer+1] = len(words)
-    parse_ptr = parse_buffer+2
-    for word,wloc,wlen in zip(words, word_locs, word_lens):
-        wordstr = ''.join(map(chr, word))
-        dict_addr = 0
-        for i in range(num_entries):
-            entry_addr = entries_start+i*entry_length
-            if match_dict_entry(env, entry_addr, wordstr):
-                dict_addr = entry_addr
-                break
-        env.write16(parse_ptr, dict_addr)
-        env.mem[parse_ptr+2] = wlen
-        env.mem[parse_ptr+3] = wloc
-        parse_ptr += 4
-
-def read(env, opinfo):
+def aread(env, opinfo):
     text_buffer = opinfo.operands[0]
     parse_buffer = opinfo.operands[1]
+
+    end_char = handle_read(env, text_buffer, parse_buffer)
+    set_var(env, opinfo.store_var, end_char)
+
+    if DBG:
+        warn('op: aread')
+        warn('    user_input', user_input)
+
+def sread(env, opinfo):
+    text_buffer = opinfo.operands[0]
+    parse_buffer = opinfo.operands[1]
+    if len(opinfo.operands) == 4:
+        time, routine = opinfo.operands[2:4]
+    else:
+        time, routine = 0, 0
 
     handle_read(env, text_buffer, parse_buffer)
 
     if DBG:
-        warn('op: read')
+        warn('op: sread')
         warn('    user_input', user_input)
+
+def tokenize(env, opinfo):
+    text_buffer = opinfo.operands[0]
+    parse_buffer = opinfo.operands[1]
+
+    if len(opinfo.operands) > 2:
+        dictionary = opinfo.operands[2]
+    else:
+        dictionary = 0
+
+    if len(opinfo.operands) > 3:
+        skip_unknown_words = opinfo.operands[3]
+    else:
+        skip_unknown_words = 0
+
+    handle_parse(env, text_buffer, parse_buffer, dictionary, skip_unknown_words)
+    if DBG:
+        warn('op: tokenize')
+        warn('    operands', opinfo.operands)
 
 def read_char(env, opinfo):
     device = opinfo.operands[0]
@@ -1026,6 +988,7 @@ def read_char(env, opinfo):
             err('read_char: num operands must be 1 or 3')
         if opinfo.operands[1] != 0 or opinfo.operands[2] != 0:
             warn('read_char: interrupts not impl\'d yet!')
+    flush(env) # all output needs to be pushed before read
     c = ord(ascii_to_zscii(getch()))
     set_var(env, opinfo.store_var, c)
     if DBG:
@@ -1103,14 +1066,16 @@ def erase_window(env, opinfo):
         warn('op: erase_window (not impld)')
 
 def split_window(env, opinfo):
-    write(env, '\n') # temp(?) fix for clarity
+    env.top_window_height = opinfo.operands[0]
     if DBG:
         warn('op: split_window (not impld)')
+        warn('    height', env.top_window_height)
 
 def set_window(env, opinfo):
-    write(env, '\n') # temp(?) fix for clarity
+    env.current_window = opinfo.operands[0]
     if DBG:
         warn('op: set_window (not impld)')
+        warn('    window:', env.current_window)
 
 def set_cursor(env, opinfo):
     write(env, '\n') # temp(?) fix for clarity
@@ -1128,4 +1093,10 @@ def set_text_style(env, opinfo):
 def sound_effect(env, opinfo):
     if DBG:
         warn('op: sound_effect (not impld)')
+
+def save_undo(env, opinfo):
+    set_var(env, opinfo.store_var, -1)
+    if DBG:
+        warn('op: save_undo (not impld for now)')
+        warn('    (but at least I can notify the game of that)')
 

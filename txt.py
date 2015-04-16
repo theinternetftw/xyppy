@@ -22,17 +22,26 @@ def wwrap(text, width):
     return '\n'.join(lines)
 
 def write(env, text):
-    width = env.hdr.screen_width_units or 80
-    env.output_buffer += text
+    # try to not draw status bars considering we're not doing curses stuff
+    # and that means things would print crazy out of order at the moment
+    # height of 7 is an arbitrary guess to find the most important window
+    if env.top_window_height < 7:
+        window_to_show = 0
+    else:
+        window_to_show = 1
+    if env.current_window == window_to_show:
+        env.output_buffer += text
     if 1 in env.selected_ostreams:
         if '\n' in env.output_buffer or not env.use_buffered_output:
+            width = env.hdr.screen_width_units or 80
             sys.stdout.write(wwrap(env.output_buffer, width))
             env.output_buffer = ''
 
 def flush(env):
     if 3 not in env.selected_ostreams:
         if 1 in env.selected_ostreams:
-            sys.stdout.write(env.output_buffer)
+            width = env.hdr.screen_width_units or 80
+            sys.stdout.write(wwrap(env.output_buffer, width))
     env.output_buffer = ''
 
 def read_packed_string(env, addr):

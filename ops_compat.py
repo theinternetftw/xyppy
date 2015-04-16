@@ -147,7 +147,7 @@ def zscii_to_ascii(clist):
         if c > 31 and c < 127:
             result += chr(c)
         else:
-           err('this zscii char not yet implemented: '+str(c))
+           warn('this zscii char not yet implemented: '+str(c))
     return result
 
 #std: 3.8
@@ -181,7 +181,9 @@ def get_prop_size(env, prop_ptr):
         if first_byte & 128:
             size_byte = env.u8(prop_ptr+1)
             if not (size_byte & 128):
-                err('malformed prop size byte: '+bin(num_byte))
+                msg = 'malformed prop size byte: '+bin(size_byte)
+                msg += ' - first_byte:'+bin(first_byte)
+                err(msg)
             return (size_byte & 63) or 64 # zero len == 64
         if first_byte & 64:
             return 2
@@ -247,7 +249,7 @@ def print_prop_list(env, obj):
         num = get_prop_num(env, ptr)
         size = get_prop_size(env, ptr)
         data_ptr = get_prop_data_ptr(env, ptr)
-        warn('    prop #',num,' - size',size)
+        warn('    prop #',num,' - size',size, end='')
         for i in range(size):
             warn('   ',hex(env.u8(data_ptr+i)), end='')
         warn()
@@ -286,28 +288,43 @@ def get_code_ptr(env, call_addr):
     else:
         return call_addr + 1
 
-#needs_compat_pass
-def fill_text_buffer(env, user_input, text_buffer, text_buf_len):
+def fill_text_buffer(env, user_input, text_buffer):
+
+    text_buf_len = env.u8(text_buffer)
+    if text_buf_len < 2:
+        err('read error: malformed text buffer')
 
     text_buf_ptr = text_buffer + 1
 
     if env.hdr.version >= 5:
+        # input may already exist, may have to append to it
         if env.u8(text_buf_ptr):
             text_buf_ptr += env.u8(text_buf_ptr)+1
+        else:
+            text_buf_ptr += 1
 
     i = 0
     max_len = text_buf_len-(text_buf_ptr-text_buffer)
     while i < min(len(user_input), max_len):
         c = user_input[i]
-        if ord(c) > 126 or ord(c) < 32:
-            warn('read: this char not impl\'d yet: '+c+' / '+str(ord(c)))
-            continue
         env.mem[text_buf_ptr + i] = ord(c.lower())
         i += 1
-    # the below is why I can't use a python for loop
-    # (it wouldn't set i properly on 0-char input)
-    env.mem[text_buf_ptr + i] = 0
-    return i
+
+    if env.hdr.version >= 5:
+        env.mem[text_buffer + 1] = (text_buf_ptr+i)-text_buffer-2
+    else:
+        # the below is why I can't use a python for loop
+        # (it wouldn't set i properly on 0-char input)
+        env.mem[text_buf_ptr + i] = 0
+
+def get_used_tbuf_len(env, text_buffer):
+    if env.hdr.version >= 5:
+        return env.mem[text_buffer + 1]
+    else:
+        ptr = text_buffer+1
+        while env.u8(ptr):
+            ptr += 1
+        return ptr - text_buffer - 1
 
 def get_text_scan_ptr(env, text_buffer):
     if env.hdr.version < 5:
@@ -325,10 +342,108 @@ def clip_word_list(env, words):
             words[i] = words[i][:MAX_WORD_LEN]
     return words
 
-# REMEMBER: not quite right: correct thing to do
-# is encode the wordstr, chop it to correct # of
-# bytes, then compare in numeric binary search to 
-# dict entries (this handles 2-byte chars, etc)
+def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words=0):
+
+    used_tbuf_len = get_used_tbuf_len(env, text_buffer)
+    parse_buf_len = env.u8(parse_buffer)
+    if parse_buf_len < 1:
+        err('read error: malformed parse buffer')
+
+    word_separators = []
+    if dict_base == 0:
+        dict_base = env.hdr.dict_base
+    num_word_seps = env.u8(dict_base)
+    for i in range(num_word_seps):
+        word_separators.append(env.u8(dict_base+1+i))
+
+    word = []
+    words = []
+    word_locs = []
+    word_len = 0
+    word_lens = []
+    scan_ptr = get_text_scan_ptr(env, text_buffer)
+    for i in range(used_tbuf_len):
+
+        c = env.u8(scan_ptr)
+
+        if c == ord(' '):
+            if word:
+                word_lens.append(word_len)
+                word_len = 0
+                words.append(word)
+                word = []
+            scan_ptr += 1
+
+        elif c in word_separators:
+            if word:
+                word_lens.append(word_len)
+                word_len = 0
+                words.append(word)
+                word = []
+            word_locs.append(scan_ptr-text_buffer)
+            word_lens.append(1)
+            words.append([c])
+            scan_ptr += 1
+
+        else:
+            if not word:
+                word_locs.append(scan_ptr-text_buffer)
+            word.append(c)
+            word_len += 1
+            scan_ptr += 1
+
+    if word:
+        word_lens.append(word_len)
+        words.append(word)
+
+    words = clip_word_list(env, words)
+
+    # limit to parse_buf_len (which is num words)
+    words = words[:parse_buf_len]
+    word_locs = word_locs[:parse_buf_len]
+    word_lens = word_lens[:parse_buf_len]
+
+    # HEY THIS IS SUB-OPTIMAL!
+    # Actual system should be:
+    # 1) Convert words to packed Z-Chars
+    # 2) Truncate at correct # bytes
+    # 3) Do numerical compare against dict
+    #    * this can be a binary search for read() opcodes
+    #    * but dictionaries for tokenize() can be unsorted
+    #       * so maybe just do regular compare always
+    #          * if speed is never an issue these days
+    #
+    # 1) and 2) are also necessary for correctness.
+    # Dict entries can have half a byte of a 2-byte
+    # 10-bit ZSCII char that was truncated in the
+    # entry creation process. That truncation should
+    # be recreated on user input to match those chars.
+
+    dict_base = env.hdr.dict_base
+    num_word_seps = env.u8(dict_base)
+
+    entry_length = env.u8(dict_base+1+num_word_seps)
+    num_entries = env.u16(dict_base+1+num_word_seps+1)
+    # this can be negative to signify dictionary is unsorted
+    num_entries = abs(num_entries)
+    entries_start = dict_base+1+num_word_seps+1+2
+
+    env.mem[parse_buffer+1] = len(words)
+    parse_ptr = parse_buffer+2
+    for word,wloc,wlen in zip(words, word_locs, word_lens):
+        wordstr = ''.join(map(chr, word))
+        dict_addr = 0
+        for i in range(num_entries):
+            entry_addr = entries_start+i*entry_length
+            if match_dict_entry(env, entry_addr, wordstr):
+                dict_addr = entry_addr
+                break
+        if dict_addr != 0 or skip_unknown_words == 0:
+            env.write16(parse_ptr, dict_addr)
+            env.mem[parse_ptr+2] = wlen
+            env.mem[parse_ptr+3] = wloc
+        parse_ptr += 4
+
 def match_dict_entry(env, entry_addr, wordstr):
     if env.hdr.version <= 3:
         entry = [env.u16(entry_addr),
