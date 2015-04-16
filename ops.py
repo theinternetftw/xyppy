@@ -203,6 +203,7 @@ def setup_opcodes(env):
     op(177, rfalse)
     op(178, print_)
     op(179, print_ret)
+    op(183, restart)
     op(184, ret_popped)
     if env.hdr.version < 5:
         op(185, pop)

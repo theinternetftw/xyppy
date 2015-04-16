@@ -944,7 +944,6 @@ def aread(env, opinfo):
 
     if DBG:
         warn('op: aread')
-        warn('    user_input', user_input)
 
 def sread(env, opinfo):
     text_buffer = opinfo.operands[0]
@@ -958,7 +957,6 @@ def sread(env, opinfo):
 
     if DBG:
         warn('op: sread')
-        warn('    user_input', user_input)
 
 def tokenize(env, opinfo):
     text_buffer = opinfo.operands[0]
@@ -1060,6 +1058,11 @@ def output_stream(env, opinfo):
         warn('op: output_stream')
         warn('    operands', opinfo.operands)
 
+def restart(env, opinfo):
+    env.reset()
+    if DBG:
+        warn('op: restart')
+
 def erase_window(env, opinfo):
     write(env, '\n') # temp(?) fix for clarity
     if DBG:
@@ -1068,13 +1071,13 @@ def erase_window(env, opinfo):
 def split_window(env, opinfo):
     env.top_window_height = opinfo.operands[0]
     if DBG:
-        warn('op: split_window (not impld)')
+        warn('op: split_window')
         warn('    height', env.top_window_height)
 
 def set_window(env, opinfo):
     env.current_window = opinfo.operands[0]
     if DBG:
-        warn('op: set_window (not impld)')
+        warn('op: set_window')
         warn('    window:', env.current_window)
 
 def set_cursor(env, opinfo):

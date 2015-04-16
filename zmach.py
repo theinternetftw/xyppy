@@ -185,6 +185,7 @@ def check_and_set_dyn_flags(env):
 
 class Env:
     def __init__(self, mem):
+        self.orig_mem = mem[:]
         self.mem = map(ord,list(mem))
         self.hdr = Header(self)
         self.pc = self.hdr.pc
@@ -214,6 +215,14 @@ class Env:
         val &= 0xffff
         self.mem[i] = val >> 8
         self.mem[i+1] = val & 0xff
+    def reset(self):
+        # only the bottom two bits of flags2 survive reset
+        # (transcribe to printer & fixed pitch font)
+        bits_to_save = self.hdr.flags2 & 3
+        self.__init__(list(self.orig_mem))
+        self.hdr.flags2 &= ~3
+        self.hdr.flags2 |= bits_to_save
+
 
 class OpInfo:
     def __init__(self, operands, store_var=None, branch_offset=None, branch_on=None, text=None):
