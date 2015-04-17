@@ -223,8 +223,7 @@ def loadb(env, opinfo):
     byte_index = to_signed_word(opinfo.operands[1])
     byte_loc = array_addr + byte_index
 
-    set_var(env, opinfo.store_var, env.u8(byte_loc))
-    
+    set_var(env, opinfo.store_var, env.u8(byte_loc)) 
     if DBG:
         warn('op: loadb')
         warn('    array_addr', array_addr)
@@ -920,15 +919,9 @@ def check_arg_count(env, opinfo):
         warn('    branch_offset', opinfo.branch_offset)
         warn('    branch_on', opinfo.branch_on)
 
-def ascii_to_zscii_char(c):
-    if ord(c) > 126 or ord(c) < 32:
-        #warn('read: this char not impl\'d yet: '+c+' / '+str(ord(c)))
-        return '?'
-    return c
-
 def get_line_of_input():
     # this will need to be more sophisticated at some point...
-    return ''.join(map(ascii_to_zscii_char, raw_input()))
+    return ascii_to_zscii(raw_input().lower())
 
 def handle_read(env, text_buffer, parse_buffer, time=0, routine=0):
 
@@ -1010,7 +1003,7 @@ def read_char(env, opinfo):
         if opinfo.operands[1] != 0 or opinfo.operands[2] != 0:
             warn('read_char: interrupts not impl\'d yet!')
     flush(env) # all output needs to be pushed before read
-    c = ord(ascii_to_zscii(getch()))
+    c = ascii_to_zscii(getch())[0]
     set_var(env, opinfo.store_var, c)
     if DBG:
         warn('op: read_char')
@@ -1062,11 +1055,10 @@ def output_stream(env, opinfo):
         stream = abs(stream)
         if stream == 3:
             table_addr = env.memory_ostream_stack.pop()
-            env.output_buffer = ascii_to_zscii(env.output_buffer)
-            buflen = len(env.output_buffer)
+            zscii_buffer = ascii_to_zscii(env.output_buffer)
+            buflen = len(zscii_buffer)
             env.write16(table_addr, buflen)
-            for i in range(buflen):
-                env.mem[table_addr+2+i] = env.output_buffer[i]
+            env.mem[table_addr+2:table_addr+2+buflen] = zscii_buffer
             env.output_buffer = ''
             if len(env.memory_ostream_stack) == 0:
                 env.selected_ostreams.discard(stream)
@@ -1142,6 +1134,53 @@ def piracy(env, opinfo):
     handle_branch(env, opinfo.branch_offset)
     if DBG:
         warn('op: piracy')
+
+def copy_table(env, opinfo):
+    first = opinfo.operands[0]
+    second = opinfo.operands[1]
+    size = opinfo.operands[2]
+    if size > 0:
+        # protects against corruption of overlapping tables
+        env.mem[second:second+size] = env.mem[first:first+size]
+    elif size < 0:
+        # allows for the corruption of overlapping tables
+        for i in range(size):
+            env.mem[second+i] = env.mem[first+i]
+    elif second == 0:
+        # zeros out first
+        env.mem[first:first+size] = [0]*size
+        
+    if DBG:
+        warn('op: copy_table')
+
+def scan_table(env, opinfo):
+    val = opinfo.operands[0]
+    tab_addr = opinfo.operands[1]
+    tab_len = opinfo.operands[2]
+    if len(opinfo.operands) > 3:
+        form = opinfo.operands[3]
+    else:
+        form = 0x82
+    val_size = (form >> 7) + 1 # word or byte
+    field_len = form & 127
+
+    addr = 0
+    for i in range(tab_len):
+        test_addr = tab_addr + i*field_len
+        if val_size == 2:
+            test_val = env.u16(test_addr)
+        else:
+            test_val = env.u8(test_addr)
+        if val == test_val:
+            addr = test_addr
+            break
+    found = addr != 0
+    set_var(env, opinfo.store_var, addr)
+    if found == opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+    if DBG:
+        warn('op: scan_table ( branched =',found,')')
+        warn('    addr',addr)
 
 def erase_window(env, opinfo):
     write(env, '\n') # temp(?) fix for clarity

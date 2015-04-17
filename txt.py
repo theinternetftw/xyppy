@@ -24,8 +24,8 @@ def wwrap(text, width):
 def write(env, text):
     # try to not draw status bars considering we're not doing curses stuff
     # and that means things would print crazy out of order at the moment
-    # height of 7 is an arbitrary guess to find the most important window
-    if env.top_window_height < 7:
+    # height of 10 is an arbitrary guess to find the most important window
+    if env.top_window_height < 10:
         window_to_show = 0
     else:
         window_to_show = 1
@@ -42,7 +42,7 @@ def flush(env):
         if 1 in env.selected_ostreams:
             width = env.hdr.screen_width_units or 80
             sys.stdout.write(wwrap(env.output_buffer, width))
-    env.output_buffer = ''
+        env.output_buffer = ''
 
 def read_packed_string(env, addr):
     packed_string = []

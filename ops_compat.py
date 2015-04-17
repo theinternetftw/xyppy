@@ -156,14 +156,15 @@ def zscii_to_ascii(clist):
 #std: 3.8
 #needs_compat_pass
 def ascii_to_zscii(string):
-    result = ''
+    result = []
     for c in string:
         if c == '\n':
-            result += '\r'
+            result.append(ord('\r'))
         elif c == '\r' or (ord(c) > 31 and ord(c) < 127):
-            result += c
+            result.append(ord(c))
         else:
-           err('this zscii char not yet implemented: '+str(c))
+           warn('this zscii char not yet implemented: '+str(c)+' / '+ord(c))
+           result.append(ord('?'))
     return result
 
 def get_prop_list_start(env, obj):
@@ -310,8 +311,7 @@ def fill_text_buffer(env, user_input, text_buffer):
     i = 0
     max_len = text_buf_len-(text_buf_ptr-text_buffer)
     while i < min(len(user_input), max_len):
-        c = user_input[i]
-        env.mem[text_buf_ptr + i] = ord(c.lower())
+        env.mem[text_buf_ptr + i] = user_input[i]
         i += 1
 
     if env.hdr.version >= 5:

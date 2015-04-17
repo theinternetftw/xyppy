@@ -44,10 +44,8 @@ def setup_opcodes(env):
     op(22,  mul,           svar=True)
     op(23,  div,           svar=True)
     op(24,  mod,           svar=True)
-    if env.hdr.version >= 4:
-        op(25, call_2s, svar=True)
-    if env.hdr.version >= 5:
-        op(26, call_2n)
+    op(25, call_2s, svar=True)
+    op(26, call_2n)
 
     op(33,  je,                         bvar=True)
     op(34,  jl,                         bvar=True)
@@ -73,10 +71,8 @@ def setup_opcodes(env):
     op(54,  mul,           svar=True)
     op(55,  div,           svar=True)
     op(56,  mod,           svar=True)
-    if env.hdr.version >= 4:
-        op(57, call_2s, svar=True)
-    if env.hdr.version >= 5:
-        op(58, call_2n)
+    op(57, call_2s, svar=True)
+    op(58, call_2n)
 
     op(65,  je,                         bvar=True)
     op(66,  jl,                         bvar=True)
@@ -102,10 +98,8 @@ def setup_opcodes(env):
     op(86,  mul,           svar=True)
     op(87,  div,           svar=True)
     op(88,  mod,           svar=True)
-    if env.hdr.version >= 4:
-        op(89, call_2s, svar=True)
-    if env.hdr.version >= 5:
-        op(90, call_2n)
+    op(89, call_2s, svar=True)
+    op(90, call_2n)
 
     op(97,  je,                         bvar=True)
     op(98,  jl,                         bvar=True)
@@ -131,10 +125,8 @@ def setup_opcodes(env):
     op(118, mul,           svar=True)
     op(119, div,           svar=True)
     op(120, mod,           svar=True)
-    if env.hdr.version >= 4:
-        op(121, call_2s, svar=True)
-    if env.hdr.version >= 5:
-        op(122, call_2n)
+    op(121, call_2s, svar=True)
+    op(122, call_2n)
 
     op(128, jz,                         bvar=True)
     op(129, get_sibling,   svar=True,   bvar=True)
@@ -144,8 +136,7 @@ def setup_opcodes(env):
     op(133, inc)
     op(134, dec)
     op(135, print_addr)
-    if env.hdr.version >= 4:
-        op(136, call_1s, svar=True)
+    op(136, call_1s, svar=True)
     op(137, remove_obj)
     op(138, print_obj)
     op(139, ret)
@@ -165,8 +156,7 @@ def setup_opcodes(env):
     op(149, inc)
     op(150, dec)
     op(151, print_addr)
-    if env.hdr.version >= 4:
-        op(152, call_1s, svar=True)
+    op(152, call_1s, svar=True)
     op(153, remove_obj)
     op(154, print_obj)
     op(155, ret)
@@ -186,8 +176,7 @@ def setup_opcodes(env):
     op(165, inc)
     op(166, dec)
     op(167, print_addr)
-    if env.hdr.version >= 4:
-        op(168, call_1s, svar=True)
+    op(168, call_1s, svar=True)
     op(169, remove_obj)
     op(170, print_obj)
     op(171, ret)
@@ -243,10 +232,8 @@ def setup_opcodes(env):
     op(214, mul,           svar=True)
     op(215, div,           svar=True)
     op(216, mod,           svar=True)
-    if env.hdr.version >= 4:
-        op(217, call_2s, svar=True)
-    if env.hdr.version >= 5:
-        op(218, call_2n)
+    op(217, call_2s, svar=True)
+    op(218, call_2n)
 
     op(224, call,          svar=True)
     op(225, storew)
@@ -263,25 +250,24 @@ def setup_opcodes(env):
     op(233, pull)
     op(234, split_window)
     op(235, set_window)
-    if env.hdr.version >= 4:
-        op(236, call, svar=True) # impl's call_vs2
-        op(237, erase_window)
-        op(239, set_cursor)
-        op(241, set_text_style)
-        op(242, buffer_mode)
+    op(236, call, svar=True) # impl's call_vs2
+    op(237, erase_window)
+    op(239, set_cursor)
+    op(241, set_text_style)
+    op(242, buffer_mode)
     op(243, output_stream)
     op(245, sound_effect)
-    if env.hdr.version >= 4:
-        op(246, read_char, svar=True)
-    if env.hdr.version >= 5:
-        op(248, not_, svar=True)
-        op(249, call_vn)
-        op(250, call_vn) # impl's call_vn2
-        op(251, tokenize)
-        op(255, check_arg_count, bvar=True)
+    op(246, read_char, svar=True)
+    op(247, scan_table, svar=True, bvar=True)
+    op(248, not_, svar=True)
+    op(249, call_vn)
+    op(250, call_vn) # impl's call_vn2
+    op(251, tokenize)
+    op(253, copy_table)
+    op(255, check_arg_count, bvar=True)
 
-        ext(2, log_shift, svar=True)
-        ext(3, art_shift, svar=True)
-        ext(4, set_font, svar=True)
-        ext(9, save_undo, svar=True)
+    ext(2, log_shift, svar=True)
+    ext(3, art_shift, svar=True)
+    ext(4, set_font, svar=True)
+    ext(9, save_undo, svar=True)
 
