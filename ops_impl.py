@@ -10,6 +10,8 @@ from zmach import to_signed_word, DBG
 from ops_compat import *
 from txt import *
 
+import quetzal
+
 def get_var(env, var_num, pop_stack=True):
     frame = env.callstack[-1]
     if var_num < 0 or var_num > 0xff:
@@ -673,8 +675,11 @@ def get_prop_addr(env, opinfo):
 def get_next_prop(env, opinfo):
     obj = opinfo.operands[0]
     prop_num = opinfo.operands[1]
-
-    next_prop_num = compat_get_next_prop(env, obj, prop_num)
+    
+    if obj:
+        next_prop_num = compat_get_next_prop(env, obj, prop_num)
+    else:
+        next_prop_num = 0
     set_var(env, opinfo.store_var, next_prop_num)
 
     if DBG:
@@ -692,6 +697,9 @@ def not_(env, opinfo):
 def insert_obj(env, opinfo):
     obj = opinfo.operands[0]
     dest = opinfo.operands[1]
+
+    if not obj or not dest:
+        return
 
     # it doesn't say explicitly to make obj's parent
     # field say dest, but *surely* that's the right
@@ -743,7 +751,8 @@ def _remove_obj(env, obj):
 
 def remove_obj(env, opinfo):
     obj = opinfo.operands[0]
-    _remove_obj(env, obj)
+    if obj:
+        _remove_obj(env, obj)
 
     if DBG:
         warn('op: remove_obj')
@@ -753,49 +762,48 @@ def set_attr(env, opinfo):
     obj = opinfo.operands[0]
     attr = opinfo.operands[1]
 
-    obj_addr = get_obj_addr(env, obj)
+    if obj:
+        obj_addr = get_obj_addr(env, obj)
 
-    attr_byte = attr // 8
-    mask = 2**(7-attr%8)
-    env.mem[obj_addr+attr_byte] |= mask
+        attr_byte = attr // 8
+        mask = 2**(7-attr%8)
+        env.mem[obj_addr+attr_byte] |= mask
 
     if DBG:
         warn('op: set_attr')
         warn('    obj', obj, '(', get_obj_str(env,obj), ')')
         warn('    attr', attr)
-        warn('    attr_byte', attr_byte)
-        warn('    mask', mask)
 
 def clear_attr(env, opinfo):
     obj = opinfo.operands[0]
     attr = opinfo.operands[1]
 
-    obj_addr = get_obj_addr(env, obj)
+    if obj:
+        obj_addr = get_obj_addr(env, obj)
 
-    attr_byte = attr // 8
-    mask = 2**(7-attr%8)
-    old_val = env.mem[obj_addr+attr_byte]
-    env.mem[obj_addr+attr_byte] &= ~mask
+        attr_byte = attr // 8
+        mask = 2**(7-attr%8)
+        old_val = env.mem[obj_addr+attr_byte]
+        env.mem[obj_addr+attr_byte] &= ~mask
 
     if DBG:
         warn('op: clear_attr')
         warn('    obj', obj, '(', get_obj_str(env,obj), ')')
         warn('    attr', attr)
-        warn('    attr_byte', attr_byte)
-        warn('    mask', mask)
-        warn('    old_val', bin(old_val))
-        warn('    new_byte_val', bin(env.mem[obj_addr+attr_byte]))
 
 def test_attr(env, opinfo):
     obj = opinfo.operands[0]
     attr = opinfo.operands[1]
 
-    obj_addr = get_obj_addr(env, obj)
+    if obj:
+        obj_addr = get_obj_addr(env, obj)
 
-    attr_byte = attr // 8
-    shift_amt = 7-attr%8
-    attr_val = env.mem[obj_addr+attr_byte] >> shift_amt & 1
-    result = attr_val == 1
+        attr_byte = attr // 8
+        shift_amt = 7-attr%8
+        attr_val = env.mem[obj_addr+attr_byte] >> shift_amt & 1
+        result = attr_val == 1
+    else:
+        result = False
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
 
@@ -803,19 +811,13 @@ def test_attr(env, opinfo):
         warn('op: test_attr ( branch =', (result==opinfo.branch_on), ')')
         warn('    obj', obj, '(', get_obj_str(env,obj), ')')
         warn('    attr', attr)
-        warn('    attr_byte', attr_byte)
-        warn('    shift_amt', shift_amt)
-        warn('    attr_byte_val', env.mem[obj_addr+attr_byte])
-        warn('    attr_val', attr_val)
-        warn('    branch_on', opinfo.branch_on)
-        warn('    branch_offset', opinfo.branch_offset)
 
 class Frame:
-    def __init__(self, return_addr, num_args=0, locals=[], return_val_loc=None):
+    def __init__(self, return_addr, num_args=0, locals=[], return_val_loc=None, stack=[]):
         self.return_addr = return_addr
         self.num_args = num_args
         self.locals = locals
-        self.stack = []
+        self.stack = stack
         self.return_val_loc = return_val_loc
 
 def handle_call(env, packed_addr, args, store_var):
@@ -926,7 +928,8 @@ def get_line_of_input():
 def handle_read(env, text_buffer, parse_buffer, time=0, routine=0):
 
     if time != 0 or routine != 0:
-        warn('warning: interrupts requested but not impl\'d yet!')
+        if DBG:
+            warn('warning: interrupts requested but not impl\'d yet!')
 
     flush(env) # all output needs to be pushed before read
 
@@ -994,14 +997,14 @@ def tokenize(env, opinfo):
         warn('    operands', opinfo.operands)
 
 def read_char(env, opinfo):
-    device = opinfo.operands[0]
-    if device != 1:
-        err('read_char: first operand must be 1')
+    # operands[0] must be 1, but I ran into a z5 that passed no operands
+    # (strictz) so let's just ignore the first operand instead...
     if len(opinfo.operands) > 1:
         if len(opinfo.operands) != 3:
             err('read_char: num operands must be 1 or 3')
         if opinfo.operands[1] != 0 or opinfo.operands[2] != 0:
-            warn('read_char: interrupts not impl\'d yet!')
+            if DBG:
+                warn('read_char: interrupts not impl\'d yet!')
     flush(env) # all output needs to be pushed before read
     c = ascii_to_zscii(getch())[0]
     set_var(env, opinfo.store_var, c)
@@ -1117,7 +1120,7 @@ def verify(env, opinfo):
     for i in range(0x40, get_file_len(env)):
         sum += ord(env.orig_mem[i])
     sum &= 0xffff
-    result = sum == env.hdr.file_checksum
+    result = sum == env.hdr.checksum
 
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
@@ -1128,7 +1131,7 @@ def verify(env, opinfo):
     if DBG:
         warn('op: verify ('+jump_info_txt+')')
         warn('    sum', sum)
-        warn('    checksum in header', env.hdr.file_checksum)
+        warn('    checksum in header', env.hdr.checksum)
 
 def piracy(env, opinfo):
     handle_branch(env, opinfo.branch_offset)
@@ -1182,6 +1185,11 @@ def scan_table(env, opinfo):
         warn('op: scan_table ( branched =',found,')')
         warn('    addr',addr)
 
+def nop(env, opinfo):
+    # what'd you expect?
+    if DBG:
+        warn('op: nop')
+
 def erase_window(env, opinfo):
     write(env, '\n') # temp(?) fix for clarity
     if DBG:
@@ -1199,10 +1207,60 @@ def set_window(env, opinfo):
         warn('op: set_window')
         warn('    window:', env.current_window)
 
+def restore_z3(env, opinfo):
+    filename = raw_input('input save filename:')
+    loaded = quetzal.load_to_env(env, filename)
+    if loaded:
+        # move past save inst's branch byte(s)
+        # (which quetzal gives as the PC)
+        env.pc += 1 if env.u8(env.pc) & 64 else 2
+    if DBG:
+        warn('op: restore (z < 4 version)')
+
+def restore(env, opinfo):
+    # TODO handle optional operands
+    if len(opinfo.operands) > 0:
+        err('restore: found operands (not yet impld): '+str(opinfo.operands))
+    filename = raw_input('input save filename:')
+    loaded = quetzal.load_to_env(env, filename)
+    if loaded:
+        # set and move past save inst's svar byte
+        # (which quetzal gives as the PC)
+        set_var(env, env.u8(env.pc), 2)
+        env.pc += 1
+    else:
+        set_var(env, opinfo.store_var, 0)
+    if DBG:
+        warn('op: restore (z > 3 version)')
+
+def save_z3(env, opinfo):
+    filename = raw_input('input save filename:')
+    quetzal.write(env, filename)
+    # currently assuming save was successful
+    if opinfo.branch_on:
+        handle_branch(env, opinfo.branch_offset)
+    if DBG:
+        warn('op: save (z < 4 version)')
+
+def save(env, opinfo):
+    # TODO handle optional operands
+    if len(opinfo.operands) > 0:
+        err('restore: found operands (not yet impld): '+str(opinfo.operands))
+    filename = raw_input('input save filename:')
+    quetzal.write(env, filename)
+    # currently assuming save was successful
+    set_var(env, opinfo.store_var, 1)
+    if DBG:
+        warn('op: save (z > 3 version)')
+
 def set_cursor(env, opinfo):
     write(env, '\n') # temp(?) fix for clarity
     if DBG:
         warn('op: set_cursor (not impld)')
+
+def set_colour(env, opinfo):
+    if DBG:
+        warn('op: set_colour (not impld)')
 
 def show_status(env, opinfo):
     if DBG:

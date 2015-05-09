@@ -46,6 +46,7 @@ def setup_opcodes(env):
     op(24,  mod,           svar=True)
     op(25, call_2s, svar=True)
     op(26, call_2n)
+    op(27, set_colour)
 
     op(33,  je,                         bvar=True)
     op(34,  jl,                         bvar=True)
@@ -73,6 +74,7 @@ def setup_opcodes(env):
     op(56,  mod,           svar=True)
     op(57, call_2s, svar=True)
     op(58, call_2n)
+    op(59, set_colour)
 
     op(65,  je,                         bvar=True)
     op(66,  jl,                         bvar=True)
@@ -100,6 +102,7 @@ def setup_opcodes(env):
     op(88,  mod,           svar=True)
     op(89, call_2s, svar=True)
     op(90, call_2n)
+    op(91, set_colour)
 
     op(97,  je,                         bvar=True)
     op(98,  jl,                         bvar=True)
@@ -127,6 +130,7 @@ def setup_opcodes(env):
     op(120, mod,           svar=True)
     op(121, call_2s, svar=True)
     op(122, call_2n)
+    op(123, set_colour)
 
     op(128, jz,                         bvar=True)
     op(129, get_sibling,   svar=True,   bvar=True)
@@ -192,6 +196,19 @@ def setup_opcodes(env):
     op(177, rfalse)
     op(178, print_)
     op(179, print_ret)
+    op(180, nop)
+    if env.hdr.version < 4:
+        op(181, save_z3, bvar=True)
+    elif env.hdr.version < 5:
+        op(181, save, svar=True)
+    else:
+        pass # illegal opcode
+    if env.hdr.version < 4:
+        op(182, restore_z3, bvar=True)
+    elif env.hdr.version < 5:
+        op(182, restore, svar=True)
+    else:
+        pass # illegal opcode
     op(183, restart)
     op(184, ret_popped)
     if env.hdr.version < 5:
@@ -234,6 +251,7 @@ def setup_opcodes(env):
     op(216, mod,           svar=True)
     op(217, call_2s, svar=True)
     op(218, call_2n)
+    op(219, set_colour)
 
     op(224, call,          svar=True)
     op(225, storew)
@@ -266,6 +284,8 @@ def setup_opcodes(env):
     op(253, copy_table)
     op(255, check_arg_count, bvar=True)
 
+    ext(0, save, svar=True)
+    ext(1, restore, svar=True)
     ext(2, log_shift, svar=True)
     ext(3, art_shift, svar=True)
     ext(4, set_font, svar=True)

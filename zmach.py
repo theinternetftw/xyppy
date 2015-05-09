@@ -54,7 +54,7 @@ class Header(object):
 
     abbrev_base = u16_prop(0x18)
     file_len = u16_prop(0x1A)
-    file_checksum = u16_prop(0x1C)
+    checksum = u16_prop(0x1C)
 
     #everything after 1C is after v3
 
@@ -99,7 +99,7 @@ class VarOperand:
     pass
 
 def get_opcode_form(env, opcode):
-    if opcode == 190 and env.hdr.version >= 5:
+    if opcode == 190:
         return ExtForm
     sel = (opcode & 0xc0) >> 6
     if sel == 0b11:
@@ -185,12 +185,20 @@ def check_and_set_dyn_flags(env):
 
 class Env:
     def __init__(self, mem):
-        self.orig_mem = mem[:]
-        self.mem = map(ord,list(mem))
+        self.orig_mem = mem
+        self.mem = map(ord, mem)
         self.hdr = Header(self)
         self.pc = self.hdr.pc
         self.callstack = [ops.Frame(0)]
 
+        # to make quetzal saves easier
+        self.last_pc_branch_var = None
+        self.last_pc_store_var = None
+
+        # buffer for each window
+        # look in to doing this instead:
+        # self.output_buffer = {0:'', 1:''}
+        # (to fix hacky heuristic in txt.py)
         self.output_buffer = ''
         self.selected_ostreams = set([1])
         self.memory_ostream_stack = []
@@ -219,10 +227,9 @@ class Env:
         # only the bottom two bits of flags2 survive reset
         # (transcribe to printer & fixed pitch font)
         bits_to_save = self.hdr.flags2 & 3
-        self.__init__(str(self.orig_mem))
+        self.__init__(self.orig_mem)
         self.hdr.flags2 &= ~3
         self.hdr.flags2 |= bits_to_save
-
 
 class OpInfo:
     def __init__(self, operands, store_var=None, branch_offset=None, branch_on=None, text=None):
@@ -304,10 +311,12 @@ def step(env):
 
     if has_store_var[opcode]:
         opinfo.store_var = env.u8(operand_ptr)
+        env.last_pc_store_var = operand_ptr # to make quetzal saves easier
         operand_ptr += 1
 
     if has_branch_var[opcode]: # std:4.7
         branch_info = env.u8(operand_ptr)
+        env.last_pc_branch_var = operand_ptr # to make quetzal saves easier
         operand_ptr += 1
         opinfo.branch_on = (branch_info & 128) == 128
         if branch_info & 64:
@@ -331,7 +340,7 @@ def step(env):
             if word & 0x8000:
                 break
 
-    prev_pc = env.pc
+    last_pc = env.pc
 
     # After all that, operand_ptr should now point to next op
     env.pc = operand_ptr
@@ -341,10 +350,10 @@ def step(env):
         for b in bytes:
             s += hex(b) + ' '
         return s
-    op_hex = hex_out(env.mem[prev_pc:env.pc])
+    op_hex = hex_out(env.mem[last_pc:env.pc])
 
     if DBG:
-        warn('step: pc', hex(prev_pc))
+        warn('step: pc', hex(last_pc))
         warn('      opcode', opcode)
         warn('      form', form)
         warn('      count', count)

@@ -163,7 +163,7 @@ def ascii_to_zscii(string):
         elif c == '\r' or (ord(c) > 31 and ord(c) < 127):
             result.append(ord(c))
         else:
-           warn('this zscii char not yet implemented: '+str(c)+' / '+ord(c))
+           warn('this zscii char not yet implemented: '+str(c)+' / '+str(ord(c)))
            result.append(ord('?'))
     return result
 

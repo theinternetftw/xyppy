@@ -19,7 +19,8 @@ def wwrap(text, width):
         else:
             lines = lines[:i] + [line[:width], line[width:]] + lines[i+1:]
         idxs = get_index_of_long_line()
-    return '\n'.join(lines)
+    lines = '\n'.join(lines)
+    return lines
 
 def write(env, text):
     # try to not draw status bars considering we're not doing curses stuff
@@ -30,18 +31,25 @@ def write(env, text):
     else:
         window_to_show = 1
     if env.current_window == window_to_show:
+        #print 'write: "'+repr(text)+'"'
         env.output_buffer += text
     if 1 in env.selected_ostreams:
         if '\n' in env.output_buffer or not env.use_buffered_output:
             width = env.hdr.screen_width_units or 80
-            sys.stdout.write(wwrap(env.output_buffer, width))
+            # really weird things are happening with bare '\n's
+            # even in a unix env. wtf.
+            out = wwrap(env.output_buffer, width).replace('\n','\r\n')
+            sys.stdout.write(out)
             env.output_buffer = ''
 
 def flush(env):
     if 3 not in env.selected_ostreams:
         if 1 in env.selected_ostreams:
             width = env.hdr.screen_width_units or 80
-            sys.stdout.write(wwrap(env.output_buffer, width))
+            # really weird things are happening with bare '\n's
+            # even in a unix env. wtf.
+            out = wwrap(env.output_buffer, width).replace('\n','\r\n')
+            sys.stdout.write(out)
         env.output_buffer = ''
 
 def read_packed_string(env, addr):
