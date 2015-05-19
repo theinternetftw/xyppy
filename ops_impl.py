@@ -1008,6 +1008,7 @@ def read_char(env, opinfo):
     flush(env) # all output needs to be pushed before read
     c = ascii_to_zscii(getch())[0]
     set_var(env, opinfo.store_var, c)
+
     if DBG:
         warn('op: read_char')
 
@@ -1052,17 +1053,17 @@ def buffer_mode(env, opinfo):
         warn('    flag', flag)
 
 def output_stream(env, opinfo):
-    flush(env)
     stream = to_signed_word(opinfo.operands[0])
+    #print '\nOUTPUTSTREAM:',stream
     if stream < 0:
         stream = abs(stream)
         if stream == 3:
             table_addr = env.memory_ostream_stack.pop()
-            zscii_buffer = ascii_to_zscii(env.output_buffer)
+            zscii_buffer = ascii_to_zscii(env.output_buffer[stream])
             buflen = len(zscii_buffer)
             env.write16(table_addr, buflen)
             env.mem[table_addr+2:table_addr+2+buflen] = zscii_buffer
-            env.output_buffer = ''
+            env.output_buffer[stream] = ''
             if len(env.memory_ostream_stack) == 0:
                 env.selected_ostreams.discard(stream)
         else:
@@ -1191,7 +1192,10 @@ def nop(env, opinfo):
         warn('op: nop')
 
 def erase_window(env, opinfo):
-    write(env, '\n') # temp(?) fix for clarity
+    blank_top_win(env)
+    # don't have curses, so lets just give some space
+    write(env, '\n\n\n\n\n')
+    flush(env)
     if DBG:
         warn('op: erase_window (not impld)')
 
@@ -1203,6 +1207,7 @@ def split_window(env, opinfo):
 
 def set_window(env, opinfo):
     env.current_window = opinfo.operands[0]
+    #print '\nSETWINDOW:', env.current_window
     if DBG:
         warn('op: set_window')
         warn('    window:', env.current_window)
@@ -1254,9 +1259,18 @@ def save(env, opinfo):
         warn('op: save (z > 3 version)')
 
 def set_cursor(env, opinfo):
-    write(env, '\n') # temp(?) fix for clarity
+    line = to_signed_word(opinfo.operands[0])
+    col = to_signed_word(opinfo.operands[1])
+    if line < 1:
+        line = 1
+    if col < 1:
+        col = 1
+    # ignores win 0 (S 8.7.2.3)
+    if env.current_window == 1:
+        # fix that line,col have a 1,1 origin
+        env.cursor[env.current_window] = line-1, col-1
     if DBG:
-        warn('op: set_cursor (not impld)')
+        warn('op: set_cursor')
 
 def set_colour(env, opinfo):
     if DBG:

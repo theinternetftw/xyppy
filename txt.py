@@ -23,34 +23,67 @@ def wwrap(text, width):
     return lines
 
 def write(env, text):
-    # try to not draw status bars considering we're not doing curses stuff
-    # and that means things would print crazy out of order at the moment
-    # height of 10 is an arbitrary guess to find the most important window
-    if env.top_window_height < 10:
-        window_to_show = 0
-    else:
-        window_to_show = 1
-    if env.current_window == window_to_show:
-        #print 'write: "'+repr(text)+'"'
-        env.output_buffer += text
-    if 1 in env.selected_ostreams:
-        if '\n' in env.output_buffer or not env.use_buffered_output:
-            width = env.hdr.screen_width_units or 80
-            # really weird things are happening with bare '\n's
-            # even in a unix env. wtf.
-            out = wwrap(env.output_buffer, width).replace('\n','\r\n')
-            sys.stdout.write(out)
-            env.output_buffer = ''
+
+    # stream 3 overrides all other output
+    if 3 in env.selected_ostreams:
+        env.output_buffer[3] += text
+        return
+
+    for stream in env.selected_ostreams:
+        if stream == 1:
+            win = env.current_window
+            out = env.output_buffer[stream][win]
+            line, col = env.cursor[win]
+            while text:
+                if line not in out:
+                    out[line] = []
+                c = text[0]
+                if c == '\n':
+                    line += 1
+                    col = 0
+                # do I need to skip e.g. \r's?
+                # or should there only be \r's at this stage
+                # and no \n's?  Check the spec again.
+                else:
+                    while len(out[line]) < col+1:
+                        out[line].append(' ')
+                    out[line][col] = c
+                    col += 1
+                text = text[1:]
+            env.cursor[win] = line, col
+        else:
+            env.output_buffer[stream] += text
 
 def flush(env):
+    #print '\nFLUSH!'
     if 3 not in env.selected_ostreams:
         if 1 in env.selected_ostreams:
+
+            win1 = []
+            # window 1 is never wrapped
+            for line in sorted(env.output_buffer[1][1].keys()):
+                win1 += [''.join(env.output_buffer[1][1][line])]
+
+            while len(win1) < env.top_window_height:
+                win1 += ['']
+
+            win0 = []
+            for line in sorted(env.output_buffer[1][0].keys()):
+                win0 += [''.join(env.output_buffer[1][0][line])]
+
             width = env.hdr.screen_width_units or 80
+            out = ('\n' +
+                   '\n'.join(win1) + '\n' +
+                   '\n' +
+                    wwrap('\n'.join(win0), width))
             # really weird things are happening with bare '\n's
             # even in a unix env. wtf.
-            out = wwrap(env.output_buffer, width).replace('\n','\r\n')
+            out = out.replace('\n','\r\n')
             sys.stdout.write(out)
-        env.output_buffer = ''
+            env.output_buffer[1][0] = {}
+
+def blank_top_win(env):
+    env.output_buffer[1][1] = {}
 
 def read_packed_string(env, addr):
     packed_string = []

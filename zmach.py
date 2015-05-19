@@ -195,11 +195,20 @@ class Env:
         self.last_pc_branch_var = None
         self.last_pc_store_var = None
 
-        # buffer for each window
-        # look in to doing this instead:
-        # self.output_buffer = {0:'', 1:''}
-        # (to fix hacky heuristic in txt.py)
-        self.output_buffer = ''
+        self.output_buffer = {
+            1: {0:{}, 1:{}},  # screen: top/bottom windows
+            2: '', # transcript
+            3: '', # mem
+            4: ''  # player input (not impld atm)
+        }
+        self.cursor = {
+            # win0 cursor never used (and set_cursor does nothing
+            # on win0), but keeping track anyway to simplify
+            # code...
+            0:(0,0),
+            1:(0,0)
+        }
+
         self.selected_ostreams = set([1])
         self.memory_ostream_stack = []
         self.use_buffered_output = True
