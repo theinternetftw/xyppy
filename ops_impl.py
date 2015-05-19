@@ -1273,6 +1273,14 @@ def set_cursor(env, opinfo):
         warn('op: set_cursor')
 
 def set_colour(env, opinfo):
+    fg_col = opinfo.operands[0]
+    bg_col = opinfo.operands[1]
+    if fg_col > 9 or bg_col > 9:
+        err('set_color attempted illegal color')
+    flush(env)
+    set_term_color(1, 1)
+    print fg_col, bg_col
+    set_term_color(fg_col, bg_col)
     if DBG:
         warn('op: set_colour (not impld)')
 

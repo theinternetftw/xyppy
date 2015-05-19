@@ -274,6 +274,9 @@ def get_sizenum_from_addr(env, prop_data_addr):
 def setup_locals(env, call_addr):
     num_locals = env.u8(call_addr)
 
+    if num_locals > 15:
+        err('calling a non-function (more than 15 local vars)')
+
     if env.hdr.version < 5:
         locals_ptr = call_addr + 1
         locals = []

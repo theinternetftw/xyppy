@@ -121,6 +121,30 @@ def err(msg):
     sys.stderr.write('error: '+msg+'\n')
     sys.exit()
 
+def set_term_color(fg_col, bg_col):
+    if isWindows():
+        # no dos colors yet
+        return
+    else:
+        # assuming VT100 compat
+        if fg_col != 0:
+            if fg_col == 1: # default (white)
+                fg_col = 9
+            color = str(fg_col + 28)
+            sys.stdout.write('\x1b['+color+'m')
+        if bg_col != 0:
+            if bg_col == 1: # default (black)
+                bg_col = 2
+            color = str(bg_col + 38)
+            sys.stdout.write('\x1b['+color+'m')
+
+def isWindows():
+    try:
+        import msvcrt
+        return True
+    except ImportError:
+        return False
+
 # right from http://code.activestate.com/recipes/134892/
 class _Getch:
     """Gets a single character from standard input.  Does not echo to the
