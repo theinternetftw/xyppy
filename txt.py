@@ -80,7 +80,13 @@ def flush(env):
             # even in a unix env. wtf.
             out = out.replace('\n','\r\n')
             sys.stdout.write(out)
+
             env.output_buffer[1][0] = {}
+            # throw away excess top window *only* after flush
+            # (to enable stuff like trinity's quotes)
+            for line in env.output_buffer[1][1].keys():
+                if line >= env.top_window_height:
+                    del env.output_buffer[1][1][line]
 
 def blank_top_win(env):
     env.output_buffer[1][1] = {}
