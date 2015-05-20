@@ -1144,20 +1144,22 @@ def piracy(env, opinfo):
 def copy_table(env, opinfo):
     first = opinfo.operands[0]
     second = opinfo.operands[1]
-    size = opinfo.operands[2]
-    if size > 0:
+    size = to_signed_word(opinfo.operands[2])
+    if second == 0:
+        # zeros out first
+        size = abs(size)
+        for i in range(size):
+            env.write8(first+i, 0)
+    elif size > 0:
         # protects against corruption of overlapping tables
         tab = env.mem[first:first+size]
         for i in range(size):
             env.write8(second+i, tab[i])
     elif size < 0:
         # allows for the corruption of overlapping tables
+        size = abs(size)
         for i in range(size):
             env.write8(second+i, env.mem[first+i])
-    elif second == 0:
-        # zeros out first
-        for i in range(size):
-            env.write8(first+i, 0)
         
     if DBG:
         warn('op: copy_table')
