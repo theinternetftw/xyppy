@@ -1278,8 +1278,6 @@ def set_colour(env, opinfo):
     if fg_col > 9 or bg_col > 9:
         err('set_color attempted illegal color')
     flush(env)
-    set_term_color(1, 1)
-    print fg_col, bg_col
     set_term_color(fg_col, bg_col)
     if DBG:
         warn('op: set_colour (not impld)')

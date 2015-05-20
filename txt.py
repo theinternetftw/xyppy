@@ -121,20 +121,57 @@ def err(msg):
     sys.stderr.write('error: '+msg+'\n')
     sys.exit()
 
-def set_term_color(fg_col, bg_col):
+def reset_term_color():
     if isWindows():
-        # no dos colors yet
-        return
+        from ctypes import windll, c_ulong, byref
+        stdout_handle = windll.kernel32.GetStdHandle(c_ulong(-11))
+        windll.kernel32.SetConsoleTextAttribute(stdout_handle, 7)
+    else:
+        sys.stdout.write('\x1b[0m')
+
+import atexit
+atexit.register(reset_term_color)
+
+def set_term_color(fg_col, bg_col):
+    if fg_col == 1: # default (white)
+        fg_col = 9
+    if bg_col == 1: # default (black)
+        bg_col = 2
+    if isWindows():
+        from ctypes import windll, c_ulong
+        stdout_handle = windll.kernel32.GetStdHandle(c_ulong(-11))
+
+        if fg_col == 2:
+            # so real bg_color works on win by padding every line with
+            # spaces to SCREEN_WIDTH and resetting the cursor to where
+            # input should be put (after filling that line with spaces
+            # too).  A quick attempt showed several corner cases, so
+            # I'm gonna leave it until I fix input cursor control (if
+            # I ever actually do: haven't run into too many things that
+            # need it). Til then, black text becomes white + no bg_col.
+            fg_col = 9
+        colormap = {
+            2: 0,
+            3: 8|4,
+            4: 8|2,
+            5: 8|6,
+            6: 8|1,
+            7: 8|5,
+            8: 8|3,
+            9: 7 # do 8|7 (15) for bright white, but since cmd.exe uses 7 I will too...
+        }
+        # this doesn't handle "leave alone" colors yet
+        # to do that with windows, will have to save current cols
+        # and reapply them here if fg_col or bg_col are 0!
+        # also see comment above for why bg_col is commented out
+        col = colormap[fg_col] # | (colormap[bg_col] << 4)
+        windll.kernel32.SetConsoleTextAttribute(stdout_handle, col)
     else:
         # assuming VT100 compat
         if fg_col != 0:
-            if fg_col == 1: # default (white)
-                fg_col = 9
             color = str(fg_col + 28)
             sys.stdout.write('\x1b['+color+'m')
         if bg_col != 0:
-            if bg_col == 1: # default (black)
-                bg_col = 2
             color = str(bg_col + 38)
             sys.stdout.write('\x1b['+color+'m')
 
