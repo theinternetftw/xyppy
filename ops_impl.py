@@ -238,7 +238,7 @@ def storeb(env, opinfo):
     byte_index = to_signed_word(opinfo.operands[1])
     val = opinfo.operands[2] & 0xff
 
-    env.mem[array_addr+byte_index] = val
+    env.write8(array_addr+byte_index, val)
 
     if DBG:
         warn('op: storeb')
@@ -637,7 +637,7 @@ def put_prop(env, opinfo):
     if size == 2:
         env.write16(prop_addr, val)
     elif size == 1:
-        env.mem[prop_addr] = val & 0xff
+        env.write8(prop_addr, val & 0xff)
     else:
         msg = 'illegal op: put_prop on outsized prop (not 1-2 bytes)'
         msg += ' - prop '+str(prop_num)
@@ -767,7 +767,8 @@ def set_attr(env, opinfo):
 
         attr_byte = attr // 8
         mask = 2**(7-attr%8)
-        env.mem[obj_addr+attr_byte] |= mask
+        old_val = env.mem[obj_addr+attr_byte]
+        env.write8(obj_addr+attr_byte, old_val|mask)
 
     if DBG:
         warn('op: set_attr')
@@ -784,7 +785,7 @@ def clear_attr(env, opinfo):
         attr_byte = attr // 8
         mask = 2**(7-attr%8)
         old_val = env.mem[obj_addr+attr_byte]
-        env.mem[obj_addr+attr_byte] &= ~mask
+        env.write8(obj_addr+attr_byte, old_val & ~mask)
 
     if DBG:
         warn('op: clear_attr')
@@ -1062,7 +1063,8 @@ def output_stream(env, opinfo):
             zscii_buffer = ascii_to_zscii(env.output_buffer[stream])
             buflen = len(zscii_buffer)
             env.write16(table_addr, buflen)
-            env.mem[table_addr+2:table_addr+2+buflen] = zscii_buffer
+            for i in range(len(zscii_buffer)):
+                env.write8(table_addr+2+i, zscii_buffer[i])
             env.output_buffer[stream] = ''
             if len(env.memory_ostream_stack) == 0:
                 env.selected_ostreams.discard(stream)
@@ -1145,14 +1147,17 @@ def copy_table(env, opinfo):
     size = opinfo.operands[2]
     if size > 0:
         # protects against corruption of overlapping tables
-        env.mem[second:second+size] = env.mem[first:first+size]
+        tab = env.mem[first:first+size]
+        for i in range(size):
+            env.write8(second+i, tab[i])
     elif size < 0:
         # allows for the corruption of overlapping tables
         for i in range(size):
-            env.mem[second+i] = env.mem[first+i]
+            env.write8(second+i, env.mem[first+i])
     elif second == 0:
         # zeros out first
-        env.mem[first:first+size] = [0]*size
+        for i in range(size):
+            env.write8(first+i, 0)
         
     if DBG:
         warn('op: copy_table')
@@ -1197,7 +1202,7 @@ def erase_window(env, opinfo):
     write(env, '\n\n\n\n\n')
     flush(env)
     if DBG:
-        warn('op: erase_window (not impld)')
+        warn('op: erase_window')
 
 def split_window(env, opinfo):
     env.top_window_height = opinfo.operands[0]

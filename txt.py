@@ -115,6 +115,10 @@ def warn(*args, **kwargs):
     for arg in args[1:]:
         msg += sep + str(arg)
     msg += end
+
+    # for the same weird issue as mentioned in flush()
+    msg = msg.replace('\n','\r\n')
+
     sys.stderr.write(msg)
 
 def err(msg):

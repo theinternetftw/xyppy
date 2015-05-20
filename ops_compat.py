@@ -38,21 +38,21 @@ def get_child_num(env, obj):
 def set_parent_num(env, obj, num):
     obj_addr = get_obj_addr(env, obj)
     if env.hdr.version < 4:
-        env.mem[obj_addr+4] = num
+        env.write8(obj_addr+4, num)
     else:
         env.write16(obj_addr+6, num)
 
 def set_sibling_num(env, obj, num):
     obj_addr = get_obj_addr(env, obj)
     if env.hdr.version < 4:
-        env.mem[obj_addr+5] = num
+        env.write8(obj_addr+5, num)
     else:
         env.write16(obj_addr+8, num)
 
 def set_child_num(env, obj, num):
     obj_addr = get_obj_addr(env, obj)
     if env.hdr.version < 4:
-        env.mem[obj_addr+6] = num
+        env.write8(obj_addr+6, num)
     else:
         env.write16(obj_addr+10, num)
 
@@ -314,15 +314,15 @@ def fill_text_buffer(env, user_input, text_buffer):
     i = 0
     max_len = text_buf_len-(text_buf_ptr-text_buffer)
     while i < min(len(user_input), max_len):
-        env.mem[text_buf_ptr + i] = user_input[i]
+        env.write8(text_buf_ptr + i, user_input[i])
         i += 1
 
     if env.hdr.version >= 5:
-        env.mem[text_buffer + 1] = (text_buf_ptr+i)-text_buffer-2
+        env.write8(text_buffer + 1, (text_buf_ptr+i)-text_buffer-2)
     else:
         # the below is why I can't use a python for loop
         # (it wouldn't set i properly on 0-char input)
-        env.mem[text_buf_ptr + i] = 0
+        env.write8(text_buf_ptr + i, 0)
 
 def get_used_tbuf_len(env, text_buffer):
     if env.hdr.version >= 5:
@@ -435,7 +435,7 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
     num_entries = abs(num_entries)
     entries_start = dict_base+1+num_word_seps+1+2
 
-    env.mem[parse_buffer+1] = len(words)
+    env.write8(parse_buffer+1, len(words))
     parse_ptr = parse_buffer+2
     for word,wloc,wlen in zip(words, word_locs, word_lens):
         wordstr = ''.join(map(chr, word))
@@ -447,8 +447,8 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
                 break
         if dict_addr != 0 or skip_unknown_words == 0:
             env.write16(parse_ptr, dict_addr)
-            env.mem[parse_ptr+2] = wlen
-            env.mem[parse_ptr+3] = wloc
+            env.write8(parse_ptr+2, wlen)
+            env.write8(parse_ptr+3, wloc)
         parse_ptr += 4
 
 def match_dict_entry(env, entry_addr, wordstr):

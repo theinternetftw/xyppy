@@ -228,10 +228,18 @@ class Env:
     def s8(self, i):
         c = self.u8(i)
         return to_signed_char(c)
+    def check_dyn_mem(self, i):
+        if i >= self.hdr.static_mem_base:
+            err('game tried to write in static mem: '+str(i))
+        if i <= 0x36 and i != 0x10:
+            err('game tried to write in non-dyn header bytes: '+str(i))
     def write16(self, i, val):
-        val &= 0xffff
-        self.mem[i] = val >> 8
+        self.check_dyn_mem(i)
+        self.mem[i] = (val >> 8) & 0xff
         self.mem[i+1] = val & 0xff
+    def write8(self, i, val):
+        self.check_dyn_mem(i)
+        self.mem[i] = val & 0xff
     def reset(self):
         # only the bottom two bits of flags2 survive reset
         # (transcribe to printer & fixed pitch font)
@@ -359,9 +367,10 @@ def step(env):
         for b in bytes:
             s += hex(b) + ' '
         return s
-    op_hex = hex_out(env.mem[last_pc:env.pc])
 
     if DBG:
+        op_hex = hex_out(env.mem[last_pc:env.pc])
+
         warn('step: pc', hex(last_pc))
         warn('      opcode', opcode)
         warn('      form', form)
