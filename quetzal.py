@@ -1,69 +1,6 @@
 import sys
 import struct
-
-def packHdr(chunk):
-    return struct.pack('>4sI', chunk.name, chunk.size)
-def getHdr(chunk):
-    return struct.unpack('>4sI', chunk[:8])
-
-class Chunk(object):
-    @classmethod
-    def from_data(cls, data):
-        obj = cls()
-        obj.name, obj.size = struct.unpack('>4sI', data[:8])
-        obj.data = data[8:8+obj.size]
-        return obj
-    def from_name_and_data(cls, name, data):
-        obj = cls()
-        obj.name = name
-        obj.size = len(data)
-        obj.data = data
-        return obj
-    def __str__(self):
-        return self.name + ' - ' + str(self.size)
-    def pack(self):
-        return packHdr(self) + self.data
-
-def splitChunks(data):
-    chunks = []
-    while data:
-        chunk = Chunk.from_data(data)
-        size = chunk.size
-        if size & 1:
-            size += 1 #extra pad byte if odd size
-        data = data[8+size:]
-        chunks.append(chunk)
-    return chunks
-
-def packChunks(chunks):
-    pchunks = ''
-    for chunk in chunks:
-        pchunk = chunk.pack()
-        if chunk.size & 1:
-            pchunk += '\0' #extra pad byte if odd size
-        pchunks += pchunk
-    return pchunks
-
-class FormChunk(Chunk):
-    @classmethod
-    def from_chunk(cls, chunk):
-        obj = cls()
-        obj.name, obj.size = chunk.name, chunk.size
-        obj.subname = chunk.data[:4]
-        obj.data = chunk.data[4:]
-        obj.chunks = splitChunks(obj.data)
-        return obj
-    @classmethod
-    def from_chunk_list(cls, chunks):
-        obj = cls()
-        obj.name = 'FORM'
-        obj.subname = 'IFZS'
-        obj.chunks = chunks
-        return obj
-    def pack(self):
-        data = packChunks(self.chunks)
-        self.size = len(data) + 4
-        return packHdr(self) + self.subname + data
+from iff import Chunk, FormChunk, packHdr
 
 class IFhdChunk(Chunk):
     @classmethod
@@ -267,18 +204,28 @@ def read(filename):
                 memChunk = UMemChunk.from_chunk(chunk)
             if chunk.name == 'Stks':
                 stksChunk = StksChunk.from_chunk(chunk)
-    return hdChunk, memChunk, stksChunk.frames
+    return formChunk.subname, hdChunk, memChunk, stksChunk.frames
 
 def write(env, filename):
     with open(filename, 'w') as f:
-        hdChunk = IFhdChunk.from_env(env)
-        memChunk = CMemChunk.from_env(env)
-        stksChunk = StksChunk.from_env(env)
-        formChunk = FormChunk.from_chunk_list([hdChunk, memChunk, stksChunk])
+        chunks = [IFhdChunk.from_env(env),
+                  CMemChunk.from_env(env),
+                  StksChunk.from_env(env)]
+        formChunk = FormChunk.from_chunk_list('IFZS', chunks)
         f.write(formChunk.pack())
 
 def load_to_env(env, filename):
-    hdrChunk, memChunk, frames = read(filename)
+    try:
+        subname, hdrChunk, memChunk, frames = read(filename)
+    except IOError as (errno, strerror):
+        print 'error reading file: '+strerror
+        return False
+    except:
+        print 'error decoding quetzal save file'
+        return False
+
+    if subname != 'IFZS':
+        print 'not a quetzal save file'
     if env.hdr.release != hdrChunk.release:
         print 'release doesn\'t match'
     elif env.hdr.serial != hdrChunk.serial:
@@ -301,3 +248,4 @@ def load_to_env(env, filename):
         # after this func returns!
         return True
     return False
+

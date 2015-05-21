@@ -1,6 +1,7 @@
 import sys
 
 import ops
+import blorb
 from txt import warn, err
 
 def to_signed_word(word):
@@ -309,8 +310,9 @@ def step(env):
             var_loc = env.u8(operand_ptr)
             var_value = ops.get_var(env, var_loc)
             operands.append(var_value)
-            varname = ops.get_var_name(var_loc)
-            foundVarStr += '      found '+str(var_value)+' in '+varname + '\n'
+            if DBG:
+                varname = ops.get_var_name(var_loc)
+                foundVarStr += '      found '+str(var_value)+' in '+varname + '\n'
             operand_ptr += 1
         else:
             err('unknown operand size specified: ' + str(sizes[i]))
@@ -395,6 +397,8 @@ def main():
 
     with open(sys.argv[1], 'rb') as f:
         mem = f.read()
+        if blorb.is_blorb(mem):
+            mem = blorb.get_code(mem)
         env = Env(mem)
 
     if env.hdr.version not in range(1,8+1):

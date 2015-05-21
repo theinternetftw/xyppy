@@ -282,6 +282,7 @@ def setup_opcodes(env):
     op(250, call_vn) # impl's call_vn2
     op(251, tokenize)
     op(253, copy_table)
+    op(254, print_table)
     op(255, check_arg_count, bvar=True)
 
     ext(0, save, svar=True)

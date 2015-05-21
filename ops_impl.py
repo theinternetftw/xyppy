@@ -1193,6 +1193,29 @@ def scan_table(env, opinfo):
         warn('op: scan_table ( branched =',found,')')
         warn('    addr',addr)
 
+# TODO: make sure this actually works
+def print_table(env, opinfo):
+    tab_addr = opinfo.operands[0]
+    width = opinfo.operands[1]
+
+    if len(opinfo.operands) > 2:
+        height = opinfo.operands[2]
+    else:
+        height = 1
+
+    if len(opinfo.operands) > 3:
+        skip = opinfo.operands[3]
+    else:
+        skip = 0
+
+    for i in range(height):
+        line = []
+        for j in range(width):
+            line.append(env.u8(tab_addr + i*(width+skip) + j))
+        write(env, zscii_to_ascii(line))
+        if i < height - 1:
+            env.write('\n')
+
 def nop(env, opinfo):
     # what'd you expect?
     if DBG:
@@ -1220,7 +1243,7 @@ def set_window(env, opinfo):
         warn('    window:', env.current_window)
 
 def restore_z3(env, opinfo):
-    filename = raw_input('input save filename:')
+    filename = raw_input('input save filename: ')
     loaded = quetzal.load_to_env(env, filename)
     if loaded:
         # move past save inst's branch byte(s)
@@ -1233,7 +1256,7 @@ def restore(env, opinfo):
     # TODO handle optional operands
     if len(opinfo.operands) > 0:
         err('restore: found operands (not yet impld): '+str(opinfo.operands))
-    filename = raw_input('input save filename:')
+    filename = raw_input('input save filename: ')
     loaded = quetzal.load_to_env(env, filename)
     if loaded:
         # set and move past save inst's svar byte
@@ -1246,7 +1269,7 @@ def restore(env, opinfo):
         warn('op: restore (z > 3 version)')
 
 def save_z3(env, opinfo):
-    filename = raw_input('input save filename:')
+    filename = raw_input('input save filename: ')
     quetzal.write(env, filename)
     # currently assuming save was successful
     if opinfo.branch_on:
@@ -1258,7 +1281,7 @@ def save(env, opinfo):
     # TODO handle optional operands
     if len(opinfo.operands) > 0:
         err('restore: found operands (not yet impld): '+str(opinfo.operands))
-    filename = raw_input('input save filename:')
+    filename = raw_input('input save filename: ')
     quetzal.write(env, filename)
     # currently assuming save was successful
     set_var(env, opinfo.store_var, 1)
