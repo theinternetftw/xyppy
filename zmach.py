@@ -1,4 +1,5 @@
 import sys
+from array import array
 
 import ops
 import blorb
@@ -34,28 +35,41 @@ def u8_prop(base):
     return property(fget=getter, fset=setter)
 
 class Header(object):
+
+    # use *_prop for dyn values
+    # and just set others from mem
+    # in __init__
         
     def __init__(self, env):
         self.env = env
 
-    version = u8_prop(0x0)
+        self.version = env.u8(0x0)
+
+        self.release = env.u16(0x2)
+        self.high_mem_base = env.u16(0x4)
+        self.pc = env.u16(0x6)
+        self.dict_base = env.u16(0x8)
+        self.obj_tab_base = env.u16(0xA)
+        self.global_var_base = env.u16(0xC)
+        self.static_mem_base = env.u16(0xE)
+
+        self.serial = env.mem[0x12:0x18]
+
+        self.abbrev_base = env.u16(0x18)
+        self.file_len = env.u16(0x1A)
+        self.checksum = env.u16(0x1C)
+
+        #everything after 1C is after v3
+
+        self.routine_offset = env.u16(0x28) #div'd by 8
+        self.string_offset = env.u16(0x2A) #div'd by 8
+
+        self.term_chars_base = env.u16(0x2E)
+        self.alpha_tab_base = env.u16(0x34)
+        self.hdr_ext_tab_base = env.u16(0x36)
+
     flags1 = u8_prop(0x1)
-    release = u16_prop(0x2)
-    high_mem_base = u16_prop(0x4)
-    pc = u16_prop(0x6)
-    dict_base = u16_prop(0x8)
-    obj_tab_base = u16_prop(0xA)
-    global_var_base = u16_prop(0xC)
-    static_mem_base = u16_prop(0xE)
     flags2 = u16_prop(0x10)
-
-    def serial_getter(self): return self.env.mem[0x12:0x18]
-    def serial_setter(self, val): self.env.mem[0x12:0x18] = val
-    serial = property(fget=serial_getter, fset=serial_setter)
-
-    abbrev_base = u16_prop(0x18)
-    file_len = u16_prop(0x1A)
-    checksum = u16_prop(0x1C)
 
     #everything after 1C is after v3
 
@@ -70,16 +84,10 @@ class Header(object):
     font_width_units = u8_prop(0x26)
     font_height_units = u8_prop(0x27)
 
-    routine_offset = u16_prop(0x28) #div'd by 8
-    string_offset = u16_prop(0x2A) #div'd by 8
-
     default_bg_color = u8_prop(0x2C)
     default_fg_color = u8_prop(0x2D)
 
-    term_chars_base = u16_prop(0x2E)
     std_rev_number = u16_prop(0x32)
-    alpha_tab_base = u16_prop(0x34)
-    hdr_ext_tab_base = u16_prop(0x36)
 
 class VarForm:
     pass
@@ -172,12 +180,8 @@ def set_standard_flags(env):
         env.hdr.font_width_units = 1
         env.hdr.font_height_units = 1
 
-
-def check_and_set_dyn_flags(env):
-    # supposed to check what game wants here and react when
-    # things change, but instead let's just always clear the
-    # features we don't support which are:
-    # menus (bit 8 (flags2 is 16 bits, so bits go 0-15)
+    # uncheck stuff we don't support in flags 2
+    # menus (bit 8)
     # sound effects (bit 7)
     # mouse (bit 5)
     # undo (bit 4)
@@ -187,10 +191,11 @@ def check_and_set_dyn_flags(env):
 class Env:
     def __init__(self, mem):
         self.orig_mem = mem
-        self.mem = map(ord, mem)
+        self.mem = array('B', map(ord, mem))
         self.hdr = Header(self)
         self.pc = self.hdr.pc
         self.callstack = [ops.Frame(0)]
+        self.icache = {}
 
         # to make quetzal saves easier
         self.last_pc_branch_var = None
@@ -219,16 +224,13 @@ class Env:
 
         set_standard_flags(self)
     def u16(self, i):
-        high = self.u8(i)
-        return (high << 8) | self.u8(i+1)
+        return (self.mem[i] << 8) | self.mem[i+1]
     def s16(self, i):
-        w = self.u16(i)
-        return to_signed_word(w)
+        return to_signed_word(self.u16(i))
     def u8(self, i):
         return self.mem[i]
     def s8(self, i):
-        c = self.u8(i)
-        return to_signed_char(c)
+        return to_signed_char(self.mem[i])
     def check_dyn_mem(self, i):
         if i >= self.hdr.static_mem_base:
             err('game tried to write in static mem: '+str(i))
@@ -250,46 +252,54 @@ class Env:
         self.hdr.flags2 |= bits_to_save
 
 class OpInfo:
-    def __init__(self, operands, store_var=None, branch_offset=None, branch_on=None, text=None):
+    def __init__(self, operands=[], sizes=[], store_var=None, branch_offset=None, branch_on=None, text=None):
         self.operands = operands
         self.store_var = store_var
         self.branch_offset = branch_offset
         self.branch_on = branch_on
         self.text = text
+        self.has_dynamic_operands = VarSize in sizes
+        if self.has_dynamic_operands:
+            self.var_op_info = []
+            for i in xrange(len(sizes)):
+                if sizes[i] == VarSize:
+                    pair = i, operands[i]
+                    self.var_op_info.append(pair)
+    def fixup_dynamic_operands(self, env):
+        for i, var_num in self.var_op_info:
+            self.operands[i] = ops.get_var(env, var_num)
 
-def step(env):
+def decode(env, pc):
 
-    check_and_set_dyn_flags(env)
-
-    opcode = env.u8(env.pc)
+    opcode = env.u8(pc)
     form = get_opcode_form(env, opcode)
     count = get_operand_count(opcode, form)
 
     if form == ExtForm:
-        opcode = env.u8(env.pc+1)
+        opcode = env.u8(pc+1)
 
     if form == ShortForm:
         szbyte = (opcode >> 4) & 3
         szbyte = (szbyte << 6) | 0x3f
-        operand_ptr = env.pc+1
+        operand_ptr = pc+1
         sizes = get_operand_sizes(szbyte)
     elif form == VarForm:
-        szbyte = env.u8(env.pc+1)
-        operand_ptr = env.pc+2
+        szbyte = env.u8(pc+1)
+        operand_ptr = pc+2
         sizes = get_operand_sizes(szbyte)
         # handle call_vn2/vs2's extra szbyte
-        if opcode in [236, 250]:
-            szbyte2 = env.u8(env.pc+2)
+        if opcode in (236, 250):
+            szbyte2 = env.u8(pc+2)
             sizes += get_operand_sizes(szbyte2)
-            operand_ptr = env.pc+3
+            operand_ptr = pc+3
     elif form == ExtForm:
-        szbyte = env.u8(env.pc+2)
-        operand_ptr = env.pc+3
+        szbyte = env.u8(pc+2)
+        operand_ptr = pc+3
         sizes = get_operand_sizes(szbyte)
     elif form == LongForm:
-        operand_ptr = env.pc+1
+        operand_ptr = pc+1
         sizes = []
-        for offset in [6,5]:
+        for offset in (6,5):
             if (opcode >> offset) & 1:
                 sizes.append(VarSize)
             else:
@@ -298,24 +308,19 @@ def step(env):
         err('unknown opform specified: ' + str(form))
 
     operands = []
-    foundVarStr = ''
-    for i in range(len(sizes)):
-        if sizes[i] == WordSize:
+    for size in sizes:
+        if size == WordSize:
             operands.append(env.u16(operand_ptr))
             operand_ptr += 2
-        elif sizes[i] == ByteSize:
+        elif size == ByteSize:
             operands.append(env.u8(operand_ptr))
             operand_ptr += 1
-        elif sizes[i] == VarSize:
+        elif size == VarSize:
             var_loc = env.u8(operand_ptr)
-            var_value = ops.get_var(env, var_loc)
-            operands.append(var_value)
-            if DBG:
-                varname = ops.get_var_name(var_loc)
-                foundVarStr += '      found '+str(var_value)+' in '+varname + '\n'
+            operands.append(var_loc) #this is fixedup to real val later by OpInfo class
             operand_ptr += 1
         else:
-            err('unknown operand size specified: ' + str(sizes[i]))
+            err('unknown operand size specified: ' + str(size))
 
     if form == ExtForm:
         dispatch = ops.ext_dispatch
@@ -326,7 +331,7 @@ def step(env):
         has_store_var = ops.has_store_var
         has_branch_var = ops.has_branch_var
 
-    opinfo = OpInfo(operands)
+    opinfo = OpInfo(operands, sizes)
 
     if has_store_var[opcode]:
         opinfo.store_var = env.u8(operand_ptr)
@@ -351,7 +356,7 @@ def step(env):
             opinfo.branch_offset = to_signed_word(branch_offset)
 
     # handle print_ and print_ret's string operand
-    if form != ExtForm and opcode in [178, 179]:
+    if form != ExtForm and opcode in (178, 179):
         while True:
             word = env.u16(operand_ptr)
             operand_ptr += 2
@@ -359,21 +364,18 @@ def step(env):
             if word & 0x8000:
                 break
 
-    last_pc = env.pc
-
-    # After all that, operand_ptr should now point to next op
-    env.pc = operand_ptr
-
-    def hex_out(bytes):
-        s = ''
-        for b in bytes:
-            s += hex(b) + ' '
-        return s
+    # After all that, operand_ptr should point to the next opcode
+    next_pc = operand_ptr
 
     if DBG:
-        op_hex = hex_out(env.mem[last_pc:env.pc])
+        def hex_out(bytes):
+            s = ''
+            for b in bytes:
+                s += hex(b) + ' '
+            return s
+        op_hex = hex_out(env.mem[pc:next_pc])
 
-        warn('step: pc', hex(last_pc))
+        warn('decode: pc', hex(pc))
         warn('      opcode', opcode)
         warn('      form', form)
         warn('      count', count)
@@ -383,10 +385,27 @@ def step(env):
             warn(foundVarStr, end='')
         warn('      sizes', sizes)
         warn('      operands', opinfo.operands)
-        warn('      next_pc', hex(env.pc))
+        warn('      next_pc', hex(next_pc))
         #warn('      bytes', op_hex)
 
-    dispatch[opcode](env, opinfo)
+    if opinfo.has_dynamic_operands:
+        opinfo.fixup_dynamic_operands(env)
+
+    return dispatch[opcode], opinfo, next_pc
+
+def step(env):
+
+    pc, icache = env.pc, env.icache
+    if pc in icache:
+        op, opinfo, env.pc = icache[pc]
+        if opinfo.has_dynamic_operands:
+            opinfo.fixup_dynamic_operands(env)
+    else:
+        op, opinfo, env.pc = decode(env, pc)
+        if pc >= env.hdr.static_mem_base:
+            icache[pc] = op, opinfo, env.pc
+
+    op(env, opinfo)
 
 DBG = 0
 
@@ -401,18 +420,20 @@ def main():
             mem = blorb.get_code(mem)
         env = Env(mem)
 
-    if env.hdr.version not in range(1,8+1):
-        err('unknown z-machine version '+str(env.hdr.version))
+    if env.hdr.version not in [3,4,5,7,8]:
+        err('unsupported z-machine version: '+str(env.hdr.version))
 
     ops.setup_opcodes(env)
 
-    i=0
-    while True:
-        i += 1
-        if DBG:
+    if DBG:
+        i=0
+        while True:
+            i += 1
             warn(i)
-
-        step(env)
+            step(env)
+    else:
+        while True:
+            step(env)
 
 if __name__ == '__main__':
     main()

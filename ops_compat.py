@@ -119,25 +119,29 @@ def unpack_string(env, packed_text):
             currentAlphabet = A0
     return ''.join(text)
 
-def unpack_addr(addr, version, offset):
+def unpack_addr(addr, version, offset=0):
     if version < 4:
         return addr * 2
     elif version < 6:
         return addr * 4
     elif version < 8:
         return addr * 4 + offset * 8
-    else: #j8
+    else: #z8
         return addr * 8
 
 def unpack_addr_call(env, addr):
     version = env.hdr.version
-    offset = env.hdr.routine_offset
-    return unpack_addr(addr, version, offset)
+    if version == 7:
+        return unpack_addr(addr, version, env.hdr.routine_offset)
+    else:
+        return unpack_addr(addr, version)
 
 def unpack_addr_print_paddr(env, addr):
     version = env.hdr.version
-    offset = env.hdr.string_offset
-    return unpack_addr(addr, version, offset)
+    if version == 7:
+        return unpack_addr(addr, version, env.hdr.string_offset)
+    else:
+        return unpack_addr(addr, version)
 
 #std: 3.8
 #needs_compat_pass

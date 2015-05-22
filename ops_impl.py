@@ -13,16 +13,17 @@ from txt import *
 import quetzal
 
 def get_var(env, var_num, pop_stack=True):
-    frame = env.callstack[-1]
     if var_num < 0 or var_num > 0xff:
         err('illegal var num: '+str(var_num))
 
     if var_num == 0:
+        frame = env.callstack[-1]
         if pop_stack:
             return frame.stack.pop()
         else:
             return frame.stack[-1]
     elif var_num < 16:
+        frame = env.callstack[-1]
         return frame.locals[var_num - 1]
     else: # < 0xff
         g_idx = var_num - 16
@@ -528,6 +529,7 @@ def _print_addr(env, addr):
     packed_string = read_packed_string(env, addr)
     string = unpack_string(env, packed_string)
     write(env, string)
+
     if DBG:
         warn()
         warn('helper: _print_addr')
@@ -837,13 +839,13 @@ def handle_call(env, packed_addr, args, store_var):
 
     # args dropped if past len of locals arr
     num_args = min(len(args), len(locals))
-    for i in range(num_args):
+    for i in xrange(num_args):
         locals[i] = args[i]
 
     env.callstack.append(Frame(return_addr,
-                               len(args),
+                               num_args,
                                locals,
-                               return_val_loc=store_var))
+                               store_var))
     env.pc = code_ptr
 
     if DBG:
