@@ -69,7 +69,7 @@ A1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 A2 = ' \n0123456789.,!?_#\'"/\-:()'
 
 #needs_compat_pass (i think only for v1/v2)
-def unpack_string(env, packed_text):
+def unpack_string(env, packed_text, warn_unknown_char=True):
 
     split_text = []
     for word in packed_text:
@@ -100,7 +100,7 @@ def unpack_string(env, packed_text):
         elif mode == '10BIT_LOW':
             mode = 'NONE'
             current_10bit |= char
-            text += zscii_to_ascii([current_10bit])
+            text += zscii_to_ascii([current_10bit], warn_unknown_char)
         elif char == 0:
             text.append(' ')
             currentAlphabet = A0
@@ -145,15 +145,17 @@ def unpack_addr_print_paddr(env, addr):
 
 #std: 3.8
 #needs_compat_pass
-def zscii_to_ascii(clist):
+def zscii_to_ascii(clist, warn_unknown_char=True):
     result = ''
     for c in clist:
         if c == 0:
             # 0 == no effect in zscii
             continue
-        if c > 31 and c < 127:
+        if c == ord('\r'):
+            result += '\n'
+        elif c > 31 and c < 127:
             result += chr(c)
-        else:
+        elif warn_unknown_char:
            warn('this zscii char not yet implemented: '+str(c))
     return result
 
@@ -167,7 +169,7 @@ def ascii_to_zscii(string):
         elif c == '\r' or (ord(c) > 31 and ord(c) < 127):
             result.append(ord(c))
         else:
-           warn('this zscii char not yet implemented: '+str(c)+' / '+str(ord(c)))
+           warn('this ascii char not yet implemented in zscii: '+str(c)+' / '+str(ord(c)))
            result.append(ord('?'))
     return result
 
@@ -463,6 +465,6 @@ def match_dict_entry(env, entry_addr, wordstr):
         entry = [env.u16(entry_addr),
                  env.u16(entry_addr+2),
                  env.u16(entry_addr+4)]
-    entry_unpacked = unpack_string(env, entry)
+    entry_unpacked = unpack_string(env, entry, warn_unknown_char=False)
     return wordstr == entry_unpacked
 
