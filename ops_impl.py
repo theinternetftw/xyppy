@@ -496,6 +496,7 @@ def ret_popped(env, opinfo):
 def quit(env, opinfo):
     if DBG:
         warn('op: quit')
+    flush(env) # print all buff'd output
     sys.exit()
 
 def print_(env, opinfo):
