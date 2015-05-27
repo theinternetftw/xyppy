@@ -146,7 +146,7 @@ def set_term_color(fg_col, bg_col):
         stdout_handle = windll.kernel32.GetStdHandle(c_ulong(-11))
 
         if fg_col == 2:
-            # so real bg_color works on win by padding every line with
+            # so real bg_color works on windows by padding every line with
             # spaces to SCREEN_WIDTH and resetting the cursor to where
             # input should be put (after filling that line with spaces
             # too).  A quick attempt showed several corner cases, so

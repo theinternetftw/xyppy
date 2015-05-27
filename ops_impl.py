@@ -13,9 +13,6 @@ from txt import *
 import quetzal
 
 def get_var(env, var_num, pop_stack=True):
-    if var_num < 0 or var_num > 0xff:
-        err('illegal var num: '+str(var_num))
-
     if var_num == 0:
         frame = env.callstack[-1]
         if pop_stack:
@@ -25,16 +22,15 @@ def get_var(env, var_num, pop_stack=True):
     elif var_num < 16:
         frame = env.callstack[-1]
         return frame.locals[var_num - 1]
-    else: # < 0xff
+    elif var_num < 256:
         g_idx = var_num - 16
         g_base = env.hdr.global_var_base
         return env.u16(g_base + 2*g_idx)
+    else:
+        err('illegal var num: '+str(var_num))
 
 def set_var(env, var_num, result, push_stack=True):
     result &= 0xffff
-
-    if var_num < 0 or var_num > 0xff:
-        err('set_var: illegal var_num: '+str(var_num))
 
     if var_num == 0:
         frame = env.callstack[-1]
@@ -45,10 +41,12 @@ def set_var(env, var_num, result, push_stack=True):
     elif var_num < 16:
         frame = env.callstack[-1]
         frame.locals[var_num - 1] = result
-    else: # < 0xff
+    elif var_num < 256:
         g_idx = var_num - 16
         g_base = env.hdr.global_var_base
         env.write16(g_base + 2*g_idx, result)
+    else:
+        err('set_var: illegal var_num: '+str(var_num))
 
 def get_var_name(var_num):
     if var_num == 0:
@@ -127,33 +125,29 @@ def jz(env, opinfo):
 
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
-        jump_info_txt = 'taken'
-    else:
-        jump_info_txt = 'not taken'
 
     if DBG:
-        warn('op: jump zero (jz) ('+jump_info_txt+')')
+        warn('op: jump zero (jz)')
         warn('    branch_offset', opinfo.branch_offset)
         warn('    branch_on', opinfo.branch_on)
+        warn('    result', result)
 
 def je(env, opinfo):
     first = opinfo.operands[0]
     result = False
-    for operand in opinfo.operands[1:]:
-        if first == operand:
+    for i in xrange(1, len(opinfo.operands)):
+        if first == opinfo.operands[i]:
             result = True
             break
 
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
-        jump_info_txt = 'taken'
-    else:
-        jump_info_txt = 'not taken'
 
     if DBG:
-        warn('op: jump equal (je) ('+jump_info_txt+')')
+        warn('op: jump equal (je)')
         warn('    branch_offset', opinfo.branch_offset)
         warn('    branch_on', opinfo.branch_on)
+        warn('    result', result)
 
 def jl(env, opinfo):
     a = to_signed_word(opinfo.operands[0])
@@ -162,16 +156,14 @@ def jl(env, opinfo):
 
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
-        jump_info_txt = 'taken'
-    else:
-        jump_info_txt = 'not taken'
 
     if DBG:
-        warn('op: jump less than (jl) ('+jump_info_txt+')')
+        warn('op: jump less than')
         warn('    a', a)
         warn('    b', b)
         warn('    branch_offset', opinfo.branch_offset)
         warn('    branch_on', opinfo.branch_on)
+        warn('    result', result)
 
 def jg(env, opinfo):
     a = to_signed_word(opinfo.operands[0])
@@ -180,16 +172,14 @@ def jg(env, opinfo):
 
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
-        jump_info_txt = 'taken'
-    else:
-        jump_info_txt = 'not taken'
 
     if DBG:
-        warn('op: jump greater than (jg) ('+jump_info_txt+')')
+        warn('op: jump greater than (jg)')
         warn('    a', a)
         warn('    b', b)
         warn('    branch_offset', opinfo.branch_offset)
         warn('    branch_on', opinfo.branch_on)
+        warn('    result', result)
 
 def handle_branch(env, offset):
     if offset == 0:
@@ -265,6 +255,7 @@ def store(env, opinfo):
     var = opinfo.operands[0]
     val = opinfo.operands[1]
     set_var(env, var, val, push_stack=False)
+
     if DBG:
         warn('op: store', val, 'in', get_var_name(var))
 
@@ -273,6 +264,7 @@ def and_(env, opinfo):
     for operand in opinfo.operands[1:]:
         acc &= operand
     set_var(env, opinfo.store_var, acc)
+
     if DBG:
         warn('op: and')
         warn('    operands', opinfo.operands)
@@ -283,6 +275,7 @@ def or_(env, opinfo):
     for operand in opinfo.operands[1:]:
         acc |= operand
     set_var(env, opinfo.store_var, acc)
+
     if DBG:
         warn('op: or')
         warn('    operands', opinfo.operands)
@@ -323,12 +316,13 @@ def inc_chk(env, opinfo):
         handle_branch(env, opinfo.branch_offset)
 
     if DBG:
-        warn('op: inc_chk ( branched =',(result==opinfo.branch_on),')')
+        warn('op: inc_chk')
         warn('    chk_val', chk_val)
         warn('    var_loc', get_var_name(var_loc))
         warn('    var_val', var_val)
-        warn('    branch_on', opinfo.branch_on)
         warn('    branch_offset', opinfo.branch_offset)
+        warn('    branch_on', opinfo.branch_on)
+        warn('    result', result)
 
 def dec_chk(env, opinfo):
     var_loc = opinfo.operands[0]
@@ -343,12 +337,13 @@ def dec_chk(env, opinfo):
         handle_branch(env, opinfo.branch_offset)
 
     if DBG:
-        warn('op: dec_chk ( branched =',(result==opinfo.branch_on),')')
+        warn('op: dec_chk')
         warn('    chk_val', chk_val)
         warn('    var_loc', get_var_name(var_loc))
         warn('    var_val', var_val)
-        warn('    branch_on', opinfo.branch_on)
         warn('    branch_offset', opinfo.branch_offset)
+        warn('    branch_on', opinfo.branch_on)
+        warn('    result', result)
 
 def test(env, opinfo):
     bitmap = opinfo.operands[0]
@@ -359,16 +354,18 @@ def test(env, opinfo):
         handle_branch(env, opinfo.branch_offset)
 
     if DBG:
-        warn('op: test ( branched =',(result==opinfo.branch_on),')')
+        warn('op: test')
         warn('    bitmap', bin(bitmap))
         warn('    flags', bin(flags))
-        warn('    branch_on', opinfo.branch_on)
         warn('    branch_offset', opinfo.branch_offset)
+        warn('    branch_on', opinfo.branch_on)
+        warn('    result', result)
 
 def push(env, opinfo):
     value = opinfo.operands[0]
     frame = env.callstack[-1]
     frame.stack.append(value)
+
     if DBG:
         warn('op: push')
         warn('    value', value)
@@ -400,11 +397,12 @@ def jin(env, opinfo):
         handle_branch(env, opinfo.branch_offset)
 
     if DBG:
-        warn('op: jin ( branch =',(result==opinfo.branch_on),')')
+        warn('op: jin')
         warn('    obj1', obj1, '(',get_obj_str(env,obj1),')')
         warn('    obj2', obj2, '(',get_obj_str(env,obj2),')')
         warn('    branch_offset', opinfo.branch_offset)
         warn('    branch_on', opinfo.branch_on)
+        warn('    result', result)
 
 def get_child(env, opinfo):
     obj = opinfo.operands[0]
@@ -417,11 +415,12 @@ def get_child(env, opinfo):
         handle_branch(env, opinfo.branch_offset)
 
     if DBG:
-        warn('op: get_child ( branched =',(result==opinfo.branch_on),')')
+        warn('op: get_child')
         warn('    obj', obj,'(',get_obj_str(env, obj),')')
         warn('    child', child_num, '(',get_obj_str(env, child_num),')')
-        warn('    branch_on', opinfo.branch_on)
         warn('    branch_offset', opinfo.branch_offset)
+        warn('    branch_on', opinfo.branch_on)
+        warn('    result', result)
 
 def get_sibling(env, opinfo):
     obj = opinfo.operands[0]
@@ -434,11 +433,12 @@ def get_sibling(env, opinfo):
         handle_branch(env, opinfo.branch_offset)
 
     if DBG:
-        warn('op: get_sibling ( branched =',(result==opinfo.branch_on),')')
+        warn('op: get_sibling')
         warn('    obj', obj,'(',get_obj_str(env, obj),')')
         warn('    sibling', sibling_num, '(',get_obj_str(env, sibling_num),')')
-        warn('    branch_on', opinfo.branch_on)
         warn('    branch_offset', opinfo.branch_offset)
+        warn('    branch_on', opinfo.branch_on)
+        warn('    result', result)
 
 def get_parent(env, opinfo):
     obj = opinfo.operands[0]
@@ -545,6 +545,7 @@ def print_addr(env, opinfo):
 
 def new_line(env, opinfo):
     write(env, '\n')
+
     if DBG:
         warn()
         warn('op: new_line')
@@ -552,6 +553,7 @@ def new_line(env, opinfo):
 def print_num(env, opinfo):
     num = to_signed_word(opinfo.operands[0])
     write(env, str(num))
+
     if DBG:
         warn()
         warn('op: print_num')
@@ -570,6 +572,7 @@ def print_obj(env, opinfo):
 def print_char(env, opinfo):
     char = zscii_to_ascii([opinfo.operands[0]])
     write(env, char)
+
     if DBG:
         warn()
         warn('op: print_char')
@@ -581,6 +584,7 @@ def get_prop_len(env, opinfo):
     else:
         size, num = get_sizenum_from_addr(env, prop_data_addr)
     set_var(env, opinfo.store_var, size)
+
     if DBG:
         warn('op: get_prop_len')
         warn('    addr', prop_data_addr)
@@ -693,6 +697,7 @@ def get_next_prop(env, opinfo):
 def not_(env, opinfo):
     val = ~(opinfo.operands[0])
     set_var(env, opinfo.store_var, val)
+
     if DBG:
         warn('op: not')
 
@@ -834,8 +839,7 @@ def handle_call(env, packed_addr, args, store_var):
 
     return_addr = env.pc
     call_addr = unpack_addr_call(env, packed_addr)
-    locals = setup_locals(env, call_addr)
-    code_ptr = get_code_ptr(env, call_addr)
+    locals, code_ptr = parse_call_header(env, call_addr)
 
     # args dropped if past len of locals arr
     num_args = min(len(args), len(locals))
@@ -867,6 +871,7 @@ def call(env, opinfo):
     packed_addr = opinfo.operands[0]
     args = opinfo.operands[1:]
     handle_call(env, packed_addr, args, opinfo.store_var)
+
     if DBG:
         warn('op: call')
 
@@ -874,6 +879,7 @@ def call_2s(env, opinfo):
     packed_addr = opinfo.operands[0]
     args = [opinfo.operands[1]]
     handle_call(env, packed_addr, args, opinfo.store_var)
+
     if DBG:
         warn('op: call_2s')
 
@@ -881,6 +887,7 @@ def call_2n(env, opinfo):
     packed_addr = opinfo.operands[0]
     args = [opinfo.operands[1]]
     handle_call(env, packed_addr, args, store_var=None)
+
     if DBG:
         warn('op: call_2n')
 
@@ -889,6 +896,7 @@ def call_vn(env, opinfo):
     packed_addr = opinfo.operands[0]
     args = opinfo.operands[1:]
     handle_call(env, packed_addr, args, store_var=None)
+
     if DBG:
         warn('op: call_vn')
 
@@ -896,6 +904,7 @@ def call_1s(env, opinfo):
     packed_addr = opinfo.operands[0]
     args = []
     handle_call(env, packed_addr, args, opinfo.store_var)
+
     if DBG:
         warn('op: call_1s')
 
@@ -903,6 +912,7 @@ def call_1n(env, opinfo):
     packed_addr = opinfo.operands[0]
     args = []
     handle_call(env, packed_addr, args, store_var=None)
+
     if DBG:
         warn('op: call_1n')
 
@@ -913,16 +923,14 @@ def check_arg_count(env, opinfo):
 
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
-        jump_info_txt = 'taken'
-    else:
-        jump_info_txt = 'not taken'
 
     if DBG:
-        warn('op: check_arg_count ('+jump_info_txt+')')
+        warn('op: check_arg_count')
         warn('    arg_num', arg_num)
         warn('    num args in frame', frame.num_args)
         warn('    branch_offset', opinfo.branch_offset)
         warn('    branch_on', opinfo.branch_on)
+        warn('    result', result)
 
 def get_line_of_input():
     # this will need to be more sophisticated at some point...
@@ -932,7 +940,7 @@ def handle_read(env, text_buffer, parse_buffer, time=0, routine=0):
 
     if time != 0 or routine != 0:
         if DBG:
-            warn('warning: interrupts requested but not impl\'d yet!')
+            err('interrupts requested but not impl\'d yet!')
 
     flush(env) # all output needs to be pushed before read
 
@@ -995,6 +1003,7 @@ def tokenize(env, opinfo):
         skip_unknown_words = 0
 
     handle_parse(env, text_buffer, parse_buffer, dictionary, skip_unknown_words)
+
     if DBG:
         warn('op: tokenize')
         warn('    operands', opinfo.operands)
@@ -1023,6 +1032,7 @@ def set_font(env, opinfo):
         set_var(env, opinfo.store_var, 0)
     else:
         set_var(env, opinfo.store_var, 1)
+
     if DBG:
         warn('op: set_font')
         warn('    font_num', font_num)
@@ -1030,6 +1040,7 @@ def set_font(env, opinfo):
 def pop(env, opinfo):
     frame = env.callstack[-1]
     frame.stack.pop()
+
     if DBG:
         warn('op: pop')
 
@@ -1051,6 +1062,7 @@ def pull(env, opinfo):
 def buffer_mode(env, opinfo):
     flag = opinfo.operands[0]
     env.use_buffered_output = (flag == 1)
+
     if DBG:
         warn('op: buffer_mode')
         warn('    flag', flag)
@@ -1079,12 +1091,14 @@ def output_stream(env, opinfo):
             if len(env.memory_ostream_stack) == 16:
                 err('too many memory-based ostreams (>16)')
             env.memory_ostream_stack.append(table_addr)
+
     if DBG:
         warn('op: output_stream')
         warn('    operands', opinfo.operands)
 
 def restart(env, opinfo):
     env.reset()
+
     if DBG:
         warn('op: restart')
 
@@ -1096,6 +1110,7 @@ def log_shift(env, opinfo):
     else:
         result = number << places
     set_var(env, opinfo.store_var, result)
+
     if DBG:
         warn('op: log_shift')
         warn('    result',result)
@@ -1108,6 +1123,7 @@ def art_shift(env, opinfo):
     else:
         result = number << places
     set_var(env, opinfo.store_var, result)
+
     if DBG:
         warn('op: log_shift')
         warn('    result',result)
@@ -1129,17 +1145,17 @@ def verify(env, opinfo):
 
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
-        jump_info_txt = 'taken'
-    else:
-        jump_info_txt = 'not taken'
 
     if DBG:
-        warn('op: verify ('+jump_info_txt+')')
+        warn('op: verify')
         warn('    sum', sum)
         warn('    checksum in header', env.hdr.checksum)
+        warn('    branch_on', opinfo.branch_on)
+        warn('    result', result)
 
 def piracy(env, opinfo):
     handle_branch(env, opinfo.branch_offset)
+
     if DBG:
         warn('op: piracy')
 
@@ -1191,8 +1207,10 @@ def scan_table(env, opinfo):
     set_var(env, opinfo.store_var, addr)
     if found == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
+
     if DBG:
-        warn('op: scan_table ( branched =',found,')')
+        warn('op: scan_table')
+        warn('    found', found)
         warn('    addr',addr)
 
 # TODO: make sure this actually works
@@ -1218,8 +1236,12 @@ def print_table(env, opinfo):
         if i < height - 1:
             env.write('\n')
 
+    if DBG:
+        warn('op: print_table')
+
 def nop(env, opinfo):
     # what'd you expect?
+
     if DBG:
         warn('op: nop')
 
@@ -1228,11 +1250,13 @@ def erase_window(env, opinfo):
     # don't have curses, so lets just give some space
     write(env, '\n\n\n\n\n')
     flush(env)
+
     if DBG:
         warn('op: erase_window')
 
 def split_window(env, opinfo):
     env.top_window_height = opinfo.operands[0]
+
     if DBG:
         warn('op: split_window')
         warn('    height', env.top_window_height)
@@ -1240,6 +1264,7 @@ def split_window(env, opinfo):
 def set_window(env, opinfo):
     env.current_window = opinfo.operands[0]
     #print '\nSETWINDOW:', env.current_window
+
     if DBG:
         warn('op: set_window')
         warn('    window:', env.current_window)
@@ -1251,6 +1276,7 @@ def restore_z3(env, opinfo):
         # move past save inst's branch byte(s)
         # (which quetzal gives as the PC)
         env.pc += 1 if env.u8(env.pc) & 64 else 2
+
     if DBG:
         warn('op: restore (z < 4 version)')
 
@@ -1267,6 +1293,7 @@ def restore(env, opinfo):
         env.pc += 1
     else:
         set_var(env, opinfo.store_var, 0)
+
     if DBG:
         warn('op: restore (z > 3 version)')
 
@@ -1276,6 +1303,7 @@ def save_z3(env, opinfo):
     # currently assuming save was successful
     if opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
+
     if DBG:
         warn('op: save (z < 4 version)')
 
@@ -1287,6 +1315,7 @@ def save(env, opinfo):
     quetzal.write(env, filename)
     # currently assuming save was successful
     set_var(env, opinfo.store_var, 1)
+
     if DBG:
         warn('op: save (z > 3 version)')
 
@@ -1301,6 +1330,7 @@ def set_cursor(env, opinfo):
     if env.current_window == 1:
         # fix that line,col have a 1,1 origin
         env.cursor[env.current_window] = line-1, col-1
+
     if DBG:
         warn('op: set_cursor')
 
@@ -1311,8 +1341,9 @@ def set_colour(env, opinfo):
         err('set_color attempted illegal color')
     flush(env)
     set_term_color(fg_col, bg_col)
+
     if DBG:
-        warn('op: set_colour (not impld)')
+        warn('op: set_colour')
 
 def show_status(env, opinfo):
     if DBG:

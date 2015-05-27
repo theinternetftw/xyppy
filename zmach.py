@@ -164,21 +164,10 @@ def set_standard_flags(env):
         # no italic available (bit 3 = 0)
         # no boldface available (bit 2 = 0)
         # no picture display available (bit 1 = 0)
-        # no color available (bit 0 = 0)
         env.hdr.flags1 &= 0b01010000
         # fixed-space font available (bit 4 = 1)
-        env.hdr.flags1 |= 0b00010000
-        # use the apple 2e interp # to fix Beyond Zork compat
-        env.hdr.interp_number = 2
-
-        env.hdr.screen_width_chars = 80
-        env.hdr.screen_height_lines = 40
-
-        env.hdr.screen_width_units = 80
-        env.hdr.screen_height_units = 40
-
-        env.hdr.font_width_units = 1
-        env.hdr.font_height_units = 1
+        # color available (bit 0 = 1)
+        env.hdr.flags1 |= 0b00010001
 
     # uncheck stuff we don't support in flags 2
     # menus (bit 8)
@@ -187,6 +176,21 @@ def set_standard_flags(env):
     # undo (bit 4)
     # and pictures (bit 3)
     env.hdr.flags2 &= 0b1111111001000111
+
+    # use the apple 2e interp # to fix Beyond Zork compat
+    env.hdr.interp_number = 2
+
+    env.hdr.screen_width_chars = 80
+    env.hdr.screen_height_lines = 40
+
+    env.hdr.screen_width_units = 80
+    env.hdr.screen_height_units = 40
+
+    env.hdr.font_width_units = 1
+    env.hdr.font_height_units = 1
+
+    env.hdr.default_fg_color = 9
+    env.hdr.default_bg_color = 2
 
 class Env:
     def __init__(self, mem):
@@ -381,8 +385,6 @@ def decode(env, pc):
         warn('      count', count)
         if opinfo.store_var:
             warn('      store_var', ops.get_var_name(opinfo.store_var))
-        if foundVarStr:
-            warn(foundVarStr, end='')
         warn('      sizes', sizes)
         warn('      operands', opinfo.operands)
         warn('      next_pc', hex(next_pc))

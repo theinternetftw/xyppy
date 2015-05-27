@@ -277,7 +277,7 @@ def get_sizenum_from_addr(env, prop_data_addr):
     num = get_prop_num(env, sizenum_ptr)
     return size, num
 
-def setup_locals(env, call_addr):
+def parse_call_header(env, call_addr):
     num_locals = env.u8(call_addr)
 
     if num_locals > 15:
@@ -286,21 +286,15 @@ def setup_locals(env, call_addr):
     if env.hdr.version < 5:
         locals_ptr = call_addr + 1
         locals = []
-        for i in range(num_locals):
+        for i in xrange(num_locals):
             locals.append(env.u16(locals_ptr))
             locals_ptr += 2
+        code_ptr = locals_ptr
     else:
         locals = [0] * num_locals
+        code_ptr = call_addr + 1
 
-    return locals
-
-def get_code_ptr(env, call_addr):
-    num_locals = env.u8(call_addr)
-    # v1-v4 behavior:
-    if env.hdr.version < 5:
-        return call_addr + 2*num_locals + 1
-    else:
-        return call_addr + 1
+    return locals, code_ptr
 
 def fill_text_buffer(env, user_input, text_buffer):
 
