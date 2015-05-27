@@ -1345,6 +1345,43 @@ def set_colour(env, opinfo):
     if DBG:
         warn('op: set_colour')
 
+def print_unicode(env, opinfo):
+    if opinfo.operands[0] < 128:
+        write(env, chr(opinfo.operands[0]))
+    else:
+        warn('\n\nattempted to print exotic unicode char: ',opinfo.operands[0],'\n\n')
+
+    if DBG:
+        warn('op: print_unicode')
+
+def check_unicode(env, opinfo):
+    if opinfo.operands[0] < 128:
+        result = 3
+    else:
+        result = 0
+    set_var(env, opinfo.store_var, result)
+
+    if DBG:
+        warn('op: check_unicode')
+
+def catch(env, opinfo):
+    set_var(env, opinfo.store_var, len(env.callstack))
+
+    if DBG:
+        warn('op: catch')
+
+def throw(env, opinfo):
+    ret_val = opinfo.operands[0]
+    callstack_len = opinfo.operands[1]
+
+    while len(env.callstack) > callstack_len:
+        env.callstack.pop()
+
+    handle_return(env, ret_val)
+
+    if DBG:
+        warn('op: throw')
+
 def show_status(env, opinfo):
     if DBG:
         warn('op: show_status (not impld)')

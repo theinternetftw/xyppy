@@ -47,6 +47,7 @@ def setup_opcodes(env):
     op(25, call_2s, svar=True)
     op(26, call_2n)
     op(27, set_colour)
+    op(28, throw)
 
     op(33,  je,                         bvar=True)
     op(34,  jl,                         bvar=True)
@@ -75,6 +76,7 @@ def setup_opcodes(env):
     op(57, call_2s, svar=True)
     op(58, call_2n)
     op(59, set_colour)
+    op(60, throw)
 
     op(65,  je,                         bvar=True)
     op(66,  jl,                         bvar=True)
@@ -103,6 +105,7 @@ def setup_opcodes(env):
     op(89, call_2s, svar=True)
     op(90, call_2n)
     op(91, set_colour)
+    op(92, throw)
 
     op(97,  je,                         bvar=True)
     op(98,  jl,                         bvar=True)
@@ -131,6 +134,7 @@ def setup_opcodes(env):
     op(121, call_2s, svar=True)
     op(122, call_2n)
     op(123, set_colour)
+    op(124, throw)
 
     op(128, jz,                         bvar=True)
     op(129, get_sibling,   svar=True,   bvar=True)
@@ -214,7 +218,7 @@ def setup_opcodes(env):
     if env.hdr.version < 5:
         op(185, pop)
     else:
-        pass # (catch) not impl'd yet
+        op(185, catch, svar=True)
     op(186, quit)
     op(187, new_line)
     if env.hdr.version == 3:
@@ -252,6 +256,7 @@ def setup_opcodes(env):
     op(217, call_2s, svar=True)
     op(218, call_2n)
     op(219, set_colour)
+    op(220, throw)
 
     op(224, call,          svar=True)
     op(225, storew)
@@ -291,4 +296,6 @@ def setup_opcodes(env):
     ext(3, art_shift, svar=True)
     ext(4, set_font, svar=True)
     ext(9, save_undo, svar=True)
+    ext(11, print_unicode)
+    ext(12, check_unicode, svar=True)
 
