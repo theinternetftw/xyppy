@@ -85,7 +85,7 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
     abbrevShift = 0
     current_10bit = 0
     mode = 'NONE'
-    for i in range(len(split_text)):
+    for i in xrange(len(split_text)):
         char = split_text[i]
         if abbrevShift > 0:
             table_addr = env.hdr.abbrev_base
@@ -261,7 +261,7 @@ def print_prop_list(env, obj):
         size = get_prop_size(env, ptr)
         data_ptr = get_prop_data_ptr(env, ptr)
         warn('    prop #',num,' - size',size, end='')
-        for i in range(size):
+        for i in xrange(size):
             warn('   ',hex(env.u8(data_ptr+i)), end='')
         warn()
         ptr = data_ptr + size
@@ -344,7 +344,7 @@ def clip_word_list(env, words):
         MAX_WORD_LEN = 6
     else:
         MAX_WORD_LEN = 9
-    for i in range(len(words)):
+    for i in xrange(len(words)):
         if len(words[i]) > MAX_WORD_LEN:
             words[i] = words[i][:MAX_WORD_LEN]
     return words
@@ -360,7 +360,7 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
     if dict_base == 0:
         dict_base = env.hdr.dict_base
     num_word_seps = env.u8(dict_base)
-    for i in range(num_word_seps):
+    for i in xrange(num_word_seps):
         word_separators.append(env.u8(dict_base+1+i))
 
     word = []
@@ -369,7 +369,7 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
     word_len = 0
     word_lens = []
     scan_ptr = get_text_scan_ptr(env, text_buffer)
-    for i in range(used_tbuf_len):
+    for i in xrange(used_tbuf_len):
 
         c = env.u8(scan_ptr)
 
@@ -440,7 +440,7 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
     for word,wloc,wlen in zip(words, word_locs, word_lens):
         wordstr = ''.join(map(chr, word))
         dict_addr = 0
-        for i in range(num_entries):
+        for i in xrange(num_entries):
             entry_addr = entries_start+i*entry_length
             if match_dict_entry(env, entry_addr, wordstr):
                 dict_addr = entry_addr

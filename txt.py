@@ -173,7 +173,7 @@ class Screen:
                 sys.stdout.write('\n')
 
                 # in fact, let's add a little more breathing room
-                for x in range(self.env.hdr.screen_width_units):
+                for x in xrange(self.env.hdr.screen_width_units):
                     set_term_color(fg, bg)
                     sys.stdout.write(' ')
                 set_term_color(fg, bg)

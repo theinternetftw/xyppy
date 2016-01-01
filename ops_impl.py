@@ -371,20 +371,20 @@ def push(env, opinfo):
         warn('    value', value)
 
 def random_(env, opinfo):
-    range = to_signed_word(opinfo.operands[0])
-    if range < 0:
-        random.seed(range)
+    rand_max = to_signed_word(opinfo.operands[0])
+    if rand_max < 0:
+        random.seed(rand_max)
         result = 0
-    elif range == 0:
+    elif rand_max == 0:
         random.seed()
         result = 0
     else:
-        result = random.randint(1, range)
+        result = random.randint(1, rand_max)
     set_var(env, opinfo.store_var, result)
     
     if DBG:
         warn('op: random')
-        warn('    range', range)
+        warn('    rand_max', rand_max)
         warn('    result', result)
 
 def jin(env, opinfo):
@@ -1079,7 +1079,7 @@ def output_stream(env, opinfo):
             zscii_buffer = ascii_to_zscii(env.output_buffer[stream])
             buflen = len(zscii_buffer)
             env.write16(table_addr, buflen)
-            for i in range(len(zscii_buffer)):
+            for i in xrange(len(zscii_buffer)):
                 env.write8(table_addr+2+i, zscii_buffer[i])
             env.output_buffer[stream] = ''
             if len(env.memory_ostream_stack) == 0:
@@ -1140,7 +1140,7 @@ def get_file_len(env):
 
 def verify(env, opinfo):
     sum = 0
-    for i in range(0x40, get_file_len(env)):
+    for i in xrange(0x40, get_file_len(env)):
         sum += ord(env.orig_mem[i])
     sum &= 0xffff
     result = sum == env.hdr.checksum
@@ -1168,17 +1168,17 @@ def copy_table(env, opinfo):
     if second == 0:
         # zeros out first
         size = abs(size)
-        for i in range(size):
+        for i in xrange(size):
             env.write8(first+i, 0)
     elif size > 0:
         # protects against corruption of overlapping tables
         tab = env.mem[first:first+size]
-        for i in range(size):
+        for i in xrange(size):
             env.write8(second+i, tab[i])
     elif size < 0:
         # allows for the corruption of overlapping tables
         size = abs(size)
-        for i in range(size):
+        for i in xrange(size):
             env.write8(second+i, env.mem[first+i])
         
     if DBG:
@@ -1196,7 +1196,7 @@ def scan_table(env, opinfo):
     field_len = form & 127
 
     addr = 0
-    for i in range(tab_len):
+    for i in xrange(tab_len):
         test_addr = tab_addr + i*field_len
         if val_size == 2:
             test_val = env.u16(test_addr)
@@ -1230,9 +1230,9 @@ def print_table(env, opinfo):
     else:
         skip = 0
 
-    for i in range(height):
+    for i in xrange(height):
         line = []
-        for j in range(width):
+        for j in xrange(width):
             line.append(env.u8(tab_addr + i*(width+skip) + j))
         write(env, zscii_to_ascii(line))
         if i < height - 1:
