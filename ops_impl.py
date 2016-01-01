@@ -1246,8 +1246,19 @@ def nop(env, opinfo):
     if DBG:
         warn('op: nop')
 
+# NOTE: incorrectly implemented!! From the spec:
+    # Erases window with given number (to background colour);
+    # or if -1 it unsplits the screen and clears the lot; or
+    # if -2 it clears the screen without unsplitting it.
+    # In cases -1 and -2, the cursor may move (see S 8 for
+    # precise details). 
 def erase_window(env, opinfo):
-    blank_top_win(env)
+    window = opinfo.operands[0]
+    if window == 1:
+        blank_top_win(env)
+    if window == 0:
+        blank_bottom_win(env)
+
     # don't have curses, so lets just give some space
     write(env, '\n\n\n\n\n')
     flush(env)
@@ -1257,6 +1268,8 @@ def erase_window(env, opinfo):
 
 def split_window(env, opinfo):
     env.top_window_height = opinfo.operands[0]
+    if env.cursor[0][1] < env.top_window_height:
+        env.cursor[0] = env.cursor[0][0], env.top_window_height
 
     if DBG:
         warn('op: split_window')
@@ -1264,7 +1277,8 @@ def split_window(env, opinfo):
 
 def set_window(env, opinfo):
     env.current_window = opinfo.operands[0]
-    #print '\nSETWINDOW:', env.current_window
+    if env.current_window == 1:
+        env.cursor[1] = (0,0)
 
     if DBG:
         warn('op: set_window')
@@ -1321,16 +1335,20 @@ def save(env, opinfo):
         warn('op: save (z > 3 version)')
 
 def set_cursor(env, opinfo):
-    line = to_signed_word(opinfo.operands[0])
+    row = to_signed_word(opinfo.operands[0])
     col = to_signed_word(opinfo.operands[1])
-    if line < 1:
-        line = 1
-    if col < 1:
+    if row < 1: # why do we not error out here?
+        row = 1
+    if col < 1: # same question
         col = 1
     # ignores win 0 (S 8.7.2.3)
     if env.current_window == 1:
-        # fix that line,col have a 1,1 origin
-        env.cursor[env.current_window] = line-1, col-1
+        if col > env.hdr.screen_width_units:
+            err('set_cursor: set outside screen width')
+        if row > env.top_window_height:
+            err('set_cursor: set outside top window height')
+        # fix that row,col have a 1,1 origin
+        env.cursor[env.current_window] = row-1, col-1
 
     if DBG:
         warn('op: set_cursor')
@@ -1340,8 +1358,12 @@ def set_colour(env, opinfo):
     bg_col = opinfo.operands[1]
     if fg_col > 9 or bg_col > 9:
         err('set_color attempted illegal color')
-    flush(env)
-    set_term_color(fg_col, bg_col)
+    if fg_col == 1:
+        fg_col = env.hdr.default_fg_color
+    if bg_col == 1:
+        bg_col = env.hdr.default_bg_color
+    env.fg_color = fg_col
+    env.bg_color = bg_col
 
     if DBG:
         warn('op: set_colour')

@@ -3,7 +3,7 @@ from array import array
 
 import ops
 import blorb
-from txt import warn, err
+from txt import warn, err, Screen
 
 def to_signed_word(word):
     if word & 0x8000:
@@ -152,22 +152,22 @@ def get_operand_sizes(szbyte):
         offset -= 2
     return sizes
 
-def set_standard_flags(env):
-    if env.hdr.version < 4:
+def set_standard_flags(hdr):
+    if hdr.version < 4:
         # no variable-spaced font (bit 6 = 0)
         # no screen splitting available (bit 5 = 0)
         # no status line (bit 4 = 0)
-        env.hdr.flags1 &= 0b10001111
+        hdr.flags1 &= 0b10001111
     else:
         # no timed keyboard events available (bit 7 = 0)
         # no sound effects available (bit 5 = 0)
         # no italic available (bit 3 = 0)
         # no boldface available (bit 2 = 0)
         # no picture display available (bit 1 = 0)
-        env.hdr.flags1 &= 0b01010000
+        hdr.flags1 &= 0b01010000
         # fixed-space font available (bit 4 = 1)
         # color available (bit 0 = 1)
-        env.hdr.flags1 |= 0b00010001
+        hdr.flags1 |= 0b00010001
 
     # uncheck stuff we don't support in flags 2
     # menus (bit 8)
@@ -175,46 +175,51 @@ def set_standard_flags(env):
     # mouse (bit 5)
     # undo (bit 4)
     # and pictures (bit 3)
-    env.hdr.flags2 &= 0b1111111001000111
+    hdr.flags2 &= 0b1111111001000111
 
     # use the apple 2e interp # to fix Beyond Zork compat
-    env.hdr.interp_number = 2
+    hdr.interp_number = 2
 
-    env.hdr.screen_width_chars = 80
-    env.hdr.screen_height_lines = 40
+    hdr.screen_width_chars = 80
+    hdr.screen_height_lines = 40
 
-    env.hdr.screen_width_units = 80
-    env.hdr.screen_height_units = 40
+    hdr.screen_width_units = 80
+    hdr.screen_height_units = 40
 
-    env.hdr.font_width_units = 1
-    env.hdr.font_height_units = 1
+    hdr.font_width_units = 1
+    hdr.font_height_units = 1
 
-    env.hdr.default_fg_color = 9
-    env.hdr.default_bg_color = 2
+    # override whatever's in the header if its bad/empty
+    if hdr.default_fg_color < 2 and hdr.default_bg_color < 2:
+        hdr.default_fg_color = 9
+        hdr.default_bg_color = 2
 
 class Env:
     def __init__(self, mem):
         self.orig_mem = mem
         self.mem = array('B', map(ord, mem))
+
         self.hdr = Header(self)
+        set_standard_flags(self.hdr)
+
         self.pc = self.hdr.pc
         self.callstack = [ops.Frame(0)]
         self.icache = {}
+
+        self.fg_color = self.hdr.default_fg_color
+        self.bg_color = self.hdr.default_bg_color
 
         # to make quetzal saves easier
         self.last_pc_branch_var = None
         self.last_pc_store_var = None
 
         self.output_buffer = {
-            1: {0:{}, 1:{}},  # screen: top/bottom windows
+            1: Screen(self),
             2: '', # transcript
             3: '', # mem
             4: ''  # player input (not impld atm)
         }
         self.cursor = {
-            # win0 cursor never used (and set_cursor does nothing
-            # on win0), but keeping track anyway to simplify
-            # code...
             0:(0,0),
             1:(0,0)
         }
@@ -226,7 +231,6 @@ class Env:
         self.current_window = 0
         self.top_window_height = 0
 
-        set_standard_flags(self)
     def u16(self, i):
         return (self.mem[i] << 8) | self.mem[i+1]
     def s16(self, i):
