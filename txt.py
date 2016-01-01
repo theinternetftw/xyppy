@@ -179,47 +179,32 @@ def set_term_color(fg_col, bg_col):
             color = str(bg_col + 38)
             sys.stdout.write('\x1b['+color+'m')
 
+is_windows_cached = None
 def isWindows():
+    global is_windows_cached
+    if is_windows_cached != None:
+        return is_windows_cached
     try:
         import msvcrt
-        return True
+        is_windows_cached = True
     except ImportError:
-        return False
+        is_windows_cached = False
+    return is_windows_cached
 
-# right from http://code.activestate.com/recipes/134892/
-class _Getch:
-    """Gets a single character from standard input.  Does not echo to the
-screen."""
-    def __init__(self):
-        try:
-            self.impl = _GetchWindows()
-        except ImportError:
-            self.impl = _GetchUnix()
-
-    def __call__(self): return self.impl()
-
-class _GetchUnix:
-    def __init__(self):
-        import tty, sys
-
-    def __call__(self):
+# mostly from http://code.activestate.com/recipes/134892/
+def getch():
+    """Gets a single character from standard input.  Does not echo to the screen."""
+    if isWindows():
+        import msvcrt
+        return msvcrt.getch()
+    else: #Unix
         import sys, tty, termios
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
-            tty.setraw(sys.stdin.fileno())
+            tty.setraw(fd)
             ch = sys.stdin.read(1)
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
-
-class _GetchWindows:
-    def __init__(self):
-        import msvcrt
-
-    def __call__(self):
-        import msvcrt
-        return msvcrt.getch()
-
-getch = _Getch()
 
