@@ -435,7 +435,7 @@ def main():
         i=0
         while True:
             i += 1
-            warn(i)
+            warn(i, hex(env.pc))
             step(env)
     else:
         while True:

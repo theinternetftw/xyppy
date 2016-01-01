@@ -577,6 +577,7 @@ def print_char(env, opinfo):
     if DBG:
         warn()
         warn('op: print_char')
+        warn('    char', char)
 
 def get_prop_len(env, opinfo):
     prop_data_addr = opinfo.operands[0]

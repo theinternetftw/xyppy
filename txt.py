@@ -1,30 +1,12 @@
 import sys
 
-def wwrap(text, width):
-    lines = [text]
-    idx = lines[-1].find('\n')
-    while idx != -1:
-        rest = lines.pop()
-        lines += [rest[:idx], rest[idx+1:]]
-        idx = lines[-1].find('\n')
-    def get_index_of_long_line():
-        return [i for i in range(len(lines)) if len(lines[i]) > width]
-    idxs = get_index_of_long_line()
-    while idxs:
-        i = idxs[0]
-        line = lines[i]
-        last_space = line[:width].rfind(' ')
-        if last_space != -1:
-            lines = lines[:i] + [line[:last_space],line[last_space+1:]] + lines[i+1:]
-        else:
-            lines = lines[:i] + [line[:width], line[width:]] + lines[i+1:]
-        idxs = get_index_of_long_line()
-    lines = '\n'.join(lines)
-    return lines
+# warning: hack filled nonsense follows, since I'm
+# converting a system that expects full control over
+# the screen to something that prints linearly in
+# the terminal
 
 def finish_writing_colors(env):
     pass
-
 def blank_top_win(env):
     pass
 def blank_bottom_win(env):
@@ -155,7 +137,7 @@ class Screen:
 
     # FIXME: Color, (set term cursor? would fix bureaucracy...)
     def flush(self):
-        buf = trim_buf(self.textBuf)
+        buf = self.trim_buf()
         fgBuf = self.fgColorBuf[:len(buf)]
         bgBuf = self.bgColorBuf[:len(buf)]
         # be conducive to our printing style by not
@@ -164,39 +146,55 @@ class Screen:
             buf = buf[self.env.top_window_height:]
             fgBuf = self.fgColorBuf[self.env.top_window_height:]
             bgBuf = self.bgColorBuf[self.env.top_window_height:]
+
         if len(buf) > 0:
             # hack? better to set term cursor manually?
-            buf[-1] = buf[-1][:self.env.cursor[0][1]]
-            fg = fgBuf[0][0]
-            bg = bgBuf[0][0]
-            set_term_color(fg, bg)
-            sys.stdout.write('\n')
-            for x in range(self.env.hdr.screen_width_units):
-                set_term_color(fg, bg)
-                sys.stdout.write(' ')
-            set_term_color(fg, bg)
-            sys.stdout.write('\n')
+            cursor_left = self.env.cursor[0][1]
+            if cursor_left != 0:
+                buf[-1] = buf[-1][:self.env.cursor[0][1]]
+
         for i in xrange(len(buf)):
             for j in xrange(len(buf[i])):
                 fg, bg = fgBuf[i][j], bgBuf[i][j]
                 set_term_color(fg, bg)
                 sys.stdout.write(buf[i][j])
             if i < len(buf) - 1:
+                set_term_color(fg, bg)
                 sys.stdout.write('\n')
+
+        if len(buf) > 0:
+            # if cursor's at zero or edge, move it to bottom otherwise it looks weird.
+            cursor_top = self.env.cursor[0][0]
+            cursor_left = self.env.cursor[0][1]
+            if cursor_left == 0 or cursor_left == self.env.hdr.screen_width_units-1:
+                fg = self.fgColorBuf[cursor_top][cursor_left]
+                bg = self.bgColorBuf[cursor_top][cursor_left]
+                set_term_color(fg, bg)
+                sys.stdout.write('\n')
+
+                # in fact, let's add a little more breathing room
+                for x in range(self.env.hdr.screen_width_units):
+                    set_term_color(fg, bg)
+                    sys.stdout.write(' ')
+                set_term_color(fg, bg)
+                sys.stdout.write('\n')
+
         self.init_bufs()
         self.env.cursor[0] = (self.env.top_window_height, 0)
+
+    def trim_buf(self):
+        trimmed_buf = self.textBuf[:]
+        while (len(trimmed_buf) > 0 and
+                len(trimmed_buf) > self.env.top_window_height and
+                line_empty(trimmed_buf[-1])):
+            trimmed_buf = trimmed_buf[:-1]
+        return trimmed_buf
 
 def line_empty(line):
     for c in line:
         if c != ' ':
             return False
     return True
-
-def trim_buf(buf):
-    trimmed_buf = buf[:]
-    while len(trimmed_buf) > 0 and line_empty(trimmed_buf[-1]):
-        trimmed_buf = trimmed_buf[:-1]
-    return trimmed_buf
 
 def write(env, text):
 
@@ -212,14 +210,13 @@ def write(env, text):
             env.output_buffer[stream] += text
 
 def flush(env):
-    #print '\nFLUSH!'
     if 3 not in env.selected_ostreams:
         if 1 in env.selected_ostreams:
-
             env.output_buffer[1].flush()
 
 '''
             # FIXME: get this working again if it's not?
+            # (it *almost* is...)
 
             # throw away excess top window *only* after flush
             # (to enable stuff like trinity's quotes)
@@ -278,17 +275,11 @@ def set_term_color(fg_col, bg_col):
         from ctypes import windll, c_ulong
         stdout_handle = windll.kernel32.GetStdHandle(c_ulong(-11))
 
-        '''
+        # having trouble with white bg, black text.
+        # let's leave that out for now.
         if fg_col == 2:
-            # so real bg_color works on windows by padding every line with
-            # spaces to SCREEN_WIDTH and resetting the cursor to where
-            # input should be put (after filling that line with spaces
-            # too).  A quick attempt showed several corner cases, so
-            # I'm gonna leave it until I fix input cursor control (if
-            # I ever actually do: haven't run into too many things that
-            # need it). Til then, black text becomes white + no bg_col.
             fg_col = 9
-        '''
+
         colormap = {
             2: 0,
             3: 8|4,
