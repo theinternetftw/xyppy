@@ -431,15 +431,21 @@ def main():
 
     ops.setup_opcodes(env)
 
-    if DBG:
-        i=0
-        while True:
-            i += 1
-            warn(i, hex(env.pc))
-            step(env)
-    else:
-        while True:
-            step(env)
+    try:
+        if DBG:
+            i=0
+            while True:
+                i += 1
+                warn(i, hex(env.pc))
+                step(env)
+        else:
+            while True:
+                step(env)
+    except KeyboardInterrupt:
+        print
+        print 'zmach.py: exiting as requested.'
+        print
+
 
 if __name__ == '__main__':
     main()

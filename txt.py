@@ -317,20 +317,23 @@ def isWindows():
         is_windows_cached = False
     return is_windows_cached
 
-# mostly from http://code.activestate.com/recipes/134892/
+# at this point pretty different from http://code.activestate.com/recipes/134892/
+# instead now mostly from https://docs.python.org/2/library/termios.html
 def getch():
     """Gets a single character from standard input.  Does not echo to the screen."""
     if isWindows():
         import msvcrt
         return msvcrt.getch()
     else: #Unix
-        import sys, tty, termios
+        import sys, termios
         fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
+        old = termios.tcgetattr(fd)
+        new = termios.tcgetattr(fd)
+        new[3] = new[3] & ~termios.ECHO # [3] == lflags
         try:
-            tty.setraw(fd)
+            termios.tcsetattr(fd, termios.TCSADRAIN, new)
             ch = sys.stdin.read(1)
         finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
         return ch
 
