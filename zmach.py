@@ -258,6 +258,8 @@ class Env:
         self.__init__(self.orig_mem)
         self.hdr.flags2 &= ~3
         self.hdr.flags2 |= bits_to_save
+    def quit(self):
+        sys.exit()
 
 class OpInfo:
     def __init__(self, operands=[], sizes=[], store_var=None, branch_offset=None, branch_on=None, text=None):

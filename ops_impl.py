@@ -4,7 +4,6 @@
 # i.e. no 'if *.z5 then X else Y'. All that should be in ops_compat.py
 
 import random
-import sys
 
 from zmach import to_signed_word, DBG
 from ops_compat import *
@@ -497,7 +496,7 @@ def quit(env, opinfo):
     if DBG:
         warn('op: quit')
     flush(env) # print all buff'd output
-    sys.exit()
+    env.quit()
 
 def print_(env, opinfo):
     string = unpack_string(env, opinfo.operands)
@@ -1236,7 +1235,7 @@ def print_table(env, opinfo):
             line.append(env.u8(tab_addr + i*(width+skip) + j))
         write(env, zscii_to_ascii(line))
         if i < height - 1:
-            env.write('\n')
+            write(env, '\n')
 
     if DBG:
         warn('op: print_table')
