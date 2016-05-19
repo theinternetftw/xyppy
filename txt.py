@@ -1,4 +1,4 @@
-import sys
+from txt_os import getch, write_char_with_color
 
 # warning: hack filled nonsense follows, since I'm
 # converting a system that expects full control over
@@ -150,17 +150,15 @@ class Screen:
         if len(buf) > 0:
             # hack? better to set term cursor manually?
             cursor_left = self.env.cursor[0][1]
-            if cursor_left != 0:
+            if cursor_left != 0 and line_empty(buf[-1][cursor_left:]):
                 buf[-1] = buf[-1][:self.env.cursor[0][1]]
 
         for i in xrange(len(buf)):
             for j in xrange(len(buf[i])):
                 fg, bg = fgBuf[i][j], bgBuf[i][j]
-                set_term_color(fg, bg)
-                sys.stdout.write(buf[i][j])
+                write_char_with_color(buf[i][j], fg, bg)
             if i < len(buf) - 1:
-                set_term_color(fg, bg)
-                sys.stdout.write('\n')
+                write_char_with_color('\n', fg, bg)
 
         if len(buf) > 0:
             # if cursor's at zero or edge, move it to bottom otherwise it looks weird.
@@ -169,26 +167,21 @@ class Screen:
             if cursor_left == 0 or cursor_left == self.env.hdr.screen_width_units-1:
                 fg = self.fgColorBuf[cursor_top][cursor_left]
                 bg = self.bgColorBuf[cursor_top][cursor_left]
-                set_term_color(fg, bg)
-                sys.stdout.write('\n')
+                write_char_with_color('\n', fg, bg)
 
                 # in fact, let's add a little more breathing room
                 for x in xrange(self.env.hdr.screen_width_units):
-                    set_term_color(fg, bg)
-                    sys.stdout.write(' ')
-                set_term_color(fg, bg)
-                sys.stdout.write('\n')
+                    write_char_with_color(' ', fg, bg)
+                write_char_with_color('\n', fg, bg)
 
         self.init_bufs()
         self.env.cursor[0] = (self.env.top_window_height, 0)
 
     def trim_buf(self):
-        trimmed_buf = self.textBuf[:]
-        while (len(trimmed_buf) > 0 and
-                len(trimmed_buf) > self.env.top_window_height and
-                line_empty(trimmed_buf[-1])):
-            trimmed_buf = trimmed_buf[:-1]
-        return trimmed_buf
+        b = self.textBuf[:]
+        while len(b) > 0 and len(b) > self.env.top_window_height and line_empty(b[-1]):
+            b = b[:-1]
+        return b
 
 def line_empty(line):
     for c in line:
@@ -224,80 +217,3 @@ def flush(env):
                 if line >= env.top_window_height:
                     del env.output_buffer[1][1][line]
 '''
-
-def reset_term_color():
-    if isWindows():
-        from ctypes import windll, c_ulong, byref
-        stdout_handle = windll.kernel32.GetStdHandle(c_ulong(-11))
-        windll.kernel32.SetConsoleTextAttribute(stdout_handle, 7)
-    else:
-        sys.stdout.write('\x1b[0m')
-
-import atexit
-atexit.register(reset_term_color)
-
-def set_term_color(fg_col, bg_col):
-    if isWindows():
-        from ctypes import windll, c_ulong
-        stdout_handle = windll.kernel32.GetStdHandle(c_ulong(-11))
-
-        # having trouble with white bg, black text.
-        # let's leave that out for now.
-        if fg_col == 2:
-            fg_col = 9
-
-        colormap = {
-            2: 0,
-            3: 8|4,
-            4: 8|2,
-            5: 8|6,
-            6: 8|1,
-            7: 8|5,
-            8: 8|3,
-            9: 7 # do 8|7 (15) for bright white, but since cmd.exe uses 7 I will too...
-        }
-        # this doesn't handle "leave alone" colors yet
-        # to do that with windows, will have to save current cols
-        # and reapply them here if fg_col or bg_col are 0!
-        # also see comment above for why bg_col is commented out
-        col = colormap[fg_col] # | (colormap[bg_col] << 4)
-        windll.kernel32.SetConsoleTextAttribute(stdout_handle, col)
-    else:
-        # assuming VT100 compat
-        color = str(fg_col + 28)
-        sys.stdout.write('\x1b['+color+'m')
-        color = str(bg_col + 38)
-        sys.stdout.write('\x1b['+color+'m')
-
-is_windows_cached = None
-def isWindows():
-    global is_windows_cached
-    if is_windows_cached != None:
-        return is_windows_cached
-    try:
-        import msvcrt
-        is_windows_cached = True
-    except ImportError:
-        is_windows_cached = False
-    return is_windows_cached
-
-# at this point pretty different from http://code.activestate.com/recipes/134892/
-# instead now mostly from https://docs.python.org/2/library/termios.html
-def getch():
-    """Gets a single character from standard input.  Does not echo to the screen."""
-    if isWindows():
-        import msvcrt
-        return msvcrt.getch()
-    else: #Unix
-        import sys, termios
-        fd = sys.stdin.fileno()
-        old = termios.tcgetattr(fd)
-        new = termios.tcgetattr(fd)
-        new[3] = new[3] & ~termios.ECHO # [3] == lflags
-        try:
-            termios.tcsetattr(fd, termios.TCSADRAIN, new)
-            ch = sys.stdin.read(1)
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old)
-        return ch
-
