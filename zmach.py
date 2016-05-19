@@ -3,7 +3,8 @@ from array import array
 
 import ops
 import blorb
-from txt import warn, err, Screen
+from txt import Screen
+from debug import warn, err
 
 def to_signed_word(word):
     if word & 0x8000:

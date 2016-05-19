@@ -3,7 +3,10 @@ import struct
 
 from iff import Chunk, FormChunk
 from quetzal import IFhdChunk
-from txt import err, warn
+
+def err(msg):
+    sys.stderr.write('error: '+msg+'\n')
+    sys.exit()
 
 class Resource(object):
     def __init__(self, usage, number, start):

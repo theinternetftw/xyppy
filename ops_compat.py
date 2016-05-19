@@ -1,4 +1,4 @@
-from txt import *
+from debug import warn, err
 
 def get_obj_addr(env, obj):
     tab = env.hdr.obj_tab_base
@@ -462,3 +462,13 @@ def match_dict_entry(env, entry_addr, wordstr):
     entry_unpacked = unpack_string(env, entry, warn_unknown_char=False)
     return wordstr == entry_unpacked
 
+# not based on z-version, but here for convenience
+def read_packed_string(env, addr):
+    packed_string = []
+    while True:
+        word = env.u16(addr)
+        packed_string.append(word)
+        if word & 0x8000:
+            break
+        addr += 2
+    return packed_string

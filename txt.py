@@ -225,40 +225,6 @@ def flush(env):
                     del env.output_buffer[1][1][line]
 '''
 
-def read_packed_string(env, addr):
-    packed_string = []
-    while True:
-        word = env.u16(addr)
-        packed_string.append(word)
-        if word & 0x8000:
-            break
-        addr += 2
-    return packed_string
-
-# emulate print()'s functionality (for now?)
-def warn(*args, **kwargs):
-    if 'sep' not in kwargs:
-        kwargs['sep'] = ' '
-    if 'end' not in kwargs:
-        kwargs['end'] = '\n'
-    sep, end = kwargs['sep'], kwargs['end']
-
-    msg = ''
-    if args:
-        msg += str(args[0])
-    for arg in args[1:]:
-        msg += sep + str(arg)
-    msg += end
-
-    # for the same weird issue as mentioned in flush()
-    msg = msg.replace('\n','\r\n')
-
-    sys.stderr.write(msg)
-
-def err(msg):
-    sys.stderr.write('error: '+msg+'\n')
-    sys.exit()
-
 def reset_term_color():
     if isWindows():
         from ctypes import windll, c_ulong, byref
