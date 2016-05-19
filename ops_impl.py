@@ -10,7 +10,7 @@ from debug import warn, err
 from ops_compat import *
 from txt import *
 
-import quetzal
+import formats.quetzal as quetzal
 
 def get_var(env, var_num, pop_stack=True):
     if var_num == 0:

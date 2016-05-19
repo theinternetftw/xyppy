@@ -2,7 +2,7 @@ import sys
 from array import array
 
 import ops
-import blorb
+import formats.blorb as blorb
 from txt import Screen
 from debug import warn, err
 
@@ -54,7 +54,7 @@ class Header(object):
         self.global_var_base = env.u16(0xC)
         self.static_mem_base = env.u16(0xE)
 
-        self.serial = env.mem[0x12:0x18]
+        self.serial = list(env.mem[0x12:0x18])
 
         self.abbrev_base = env.u16(0x18)
         self.file_len = env.u16(0x1A)
@@ -231,6 +231,10 @@ class Env:
 
         self.current_window = 0
         self.top_window_height = 0
+
+    def fixup_after_restore(self):
+        # make sure our standard flags are set after load
+        set_standard_flags(self.hdr)
 
     def u16(self, i):
         return (self.mem[i] << 8) | self.mem[i+1]

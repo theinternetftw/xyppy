@@ -234,15 +234,15 @@ def load_to_env(env, filename):
         print 'checksum does\'t match'
     else:
         env.reset()
-        env.callstack = frames
-        if memChunk.compressed:
-            memDiff = memChunk.mem
-            for i in xrange(len(memDiff)):
-                env.mem[i] ^= ord(memDiff[i])
-        else:
-            dmLen = len(memChunk.mem)
-            env.mem[:dmLen] = memChunk.mem
+        for i in xrange(len(memChunk.mem)):
+            if memChunk.compressed:
+                env.mem[i] ^= ord(memChunk.mem[i])
+            else:
+                env.mem[i] = ord(memChunk.mem[i])
+        env.fixup_after_restore()
         env.pc = hdrChunk.pc
+        env.callstack = frames
+
         # pc is now in wrong place:
         # must fix based on z version
         # after this func returns!
