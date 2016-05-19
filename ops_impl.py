@@ -1357,14 +1357,16 @@ def set_cursor(env, opinfo):
 def set_colour(env, opinfo):
     fg_col = opinfo.operands[0]
     bg_col = opinfo.operands[1]
-    if fg_col > 9 or bg_col > 9:
+    if fg_col > 9 or bg_col > 9 or fg_col < 0 or bg_col < 0:
         err('set_color attempted illegal color')
     if fg_col == 1:
         fg_col = env.hdr.default_fg_color
+    elif fg_col != 0:
+        env.fg_color = fg_col
     if bg_col == 1:
         bg_col = env.hdr.default_bg_color
-    env.fg_color = fg_col
-    env.bg_color = bg_col
+    elif bg_col != 0:
+        env.bg_color = bg_col
 
     if DBG:
         warn('op: set_colour')

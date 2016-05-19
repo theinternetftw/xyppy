@@ -298,12 +298,10 @@ def set_term_color(fg_col, bg_col):
         windll.kernel32.SetConsoleTextAttribute(stdout_handle, col)
     else:
         # assuming VT100 compat
-        if fg_col != 0:
-            color = str(fg_col + 28)
-            sys.stdout.write('\x1b['+color+'m')
-        if bg_col != 0:
-            color = str(bg_col + 38)
-            sys.stdout.write('\x1b['+color+'m')
+        color = str(fg_col + 28)
+        sys.stdout.write('\x1b['+color+'m')
+        color = str(bg_col + 38)
+        sys.stdout.write('\x1b['+color+'m')
 
 is_windows_cached = None
 def isWindows():
