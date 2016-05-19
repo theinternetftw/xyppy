@@ -112,7 +112,7 @@ class Screen:
         env = self.env
         win = env.current_window
         w = env.hdr.screen_width_units
-        while len(self.textBuf) < env.cursor[win][0]:
+        while env.cursor[win][0] > len(self.textBuf) - 1:
             self.append_buf_line()
         for c in text:
             if c == '\n':
