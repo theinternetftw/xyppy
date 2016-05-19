@@ -189,7 +189,7 @@ def setup_opcodes(env):
     op(170, print_obj)
     op(171, ret)
     op(172, jump)
-    op(173, print_paddr)  
+    op(173, print_paddr)
     op(174, load,          svar=True)
     if env.hdr.version < 5:
         op(175, not_, svar=True)
@@ -226,7 +226,7 @@ def setup_opcodes(env):
     else:
         pass # illegal opcode
     op(189, verify,        bvar=True)
-    # 190 == extended opcode start
+    #  190 == extended opcode start
     op(191, piracy,        bvar=True)
 
     op(193, je,                         bvar=True)
@@ -275,10 +275,12 @@ def setup_opcodes(env):
     op(235, set_window)
     op(236, call, svar=True) # impl's call_vs2
     op(237, erase_window)
+    # op(238, erase_line) (NOT YET IMPLEMENTED)
     op(239, set_cursor)
     op(241, set_text_style)
     op(242, buffer_mode)
     op(243, output_stream)
+    # op(244, input_stream) (NOT YET IMPLEMENTED)
     op(245, sound_effect)
     op(246, read_char, svar=True)
     op(247, scan_table, svar=True, bvar=True)
@@ -286,6 +288,7 @@ def setup_opcodes(env):
     op(249, call_vn)
     op(250, call_vn) # impl's call_vn2
     op(251, tokenize)
+    # op(252, encode_text) (NOT YET IMPLEMENTED)
     op(253, copy_table)
     op(254, print_table)
     op(255, check_arg_count, bvar=True)
@@ -296,6 +299,8 @@ def setup_opcodes(env):
     ext(3, art_shift, svar=True)
     ext(4, set_font, svar=True)
     ext(9, save_undo, svar=True)
+    # ext(10, restore_undo, svar=True) (NOT IMPLEMENTED)
     ext(11, print_unicode)
     ext(12, check_unicode, svar=True)
+    # ext(13, set_true_colour)
 
