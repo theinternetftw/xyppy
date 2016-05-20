@@ -1413,8 +1413,20 @@ def show_status(env, opinfo):
         warn('op: show_status (not impld)')
 
 def set_text_style(env, opinfo):
+    style = opinfo.operands[0]
+    if style == 0:
+        env.text_style = 'normal'
+    if style & 1:
+        env.text_style = 'reverse_video'
+    if style & 2:
+        env.text_style = 'bold'
+    if style & 4:
+        env.text_style = 'italic'
+    if style & 8:
+        env.text_style = 'fixed_pitch'
     if DBG:
-        warn('op: set_text_style (not impld)')
+        warn('op: set_text_style')
+        warn('    style:', style)
 
 def sound_effect(env, opinfo):
     if DBG:

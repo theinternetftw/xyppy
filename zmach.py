@@ -224,6 +224,7 @@ class Env:
             0:(0,0),
             1:(0,0)
         }
+        self.text_style = 'normal'
 
         self.selected_ostreams = set([1])
         self.memory_ostream_stack = []

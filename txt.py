@@ -12,6 +12,15 @@ def blank_top_win(env):
 def blank_bottom_win(env):
     pass
 
+def write_char(c, fg_col, bg_col, style):
+
+    # '\n' check b/c reverse video col isn't suppose to stretch across window
+    # guessing that based on S 8.7.3.1
+    if style == 'reverse_video' and c != '\n':
+        fg_col, bg_col = bg_col, fg_col
+    # no other styling for now
+    write_char_with_color(c, fg_col, bg_col)
+
 class Screen:
     def __init__(self, env):
         self.env = env
@@ -22,6 +31,7 @@ class Screen:
         self.textBuf = self.make_screen_buf(' ')
         self.fgColorBuf = self.make_screen_buf(self.env.fg_color)
         self.bgColorBuf = self.make_screen_buf(self.env.bg_color)
+        self.styleBuf = self.make_screen_buf('normal')
 
     def make_screen_buf(self, default_val):
         buf = []
@@ -39,6 +49,8 @@ class Screen:
         self.textBuf.append(self.make_buf_line(' '))
         self.fgColorBuf.append(self.make_buf_line(self.env.fg_color))
         self.bgColorBuf.append(self.make_buf_line(self.env.bg_color))
+        # pretty sure this is right, see S 8.7.3.1, 8.7.3.2
+        self.styleBuf.append(self.make_buf_line('normal'))
 
     def write(self, text):
         if self.env.use_buffered_output:
@@ -54,6 +66,8 @@ class Screen:
         win = env.current_window
         row, col = env.cursor[win]
         while col < w-1:
+            # FIXME: ? does this muck with S 8.7.3.1?
+            # i.e. do I need to temp turn off reverse video here if on?
             self.write_unwrapped(' ') # for bg_color
             row, col = env.cursor[win]
         if win == 0 or row+1 < h:
@@ -122,6 +136,7 @@ class Screen:
                 self.textBuf[y][x] = c
                 self.fgColorBuf[y][x] = env.fg_color
                 self.bgColorBuf[y][x] = env.bg_color
+                self.styleBuf[y][x] = env.text_style
                 env.cursor[win] = y, x+1
                 if x+1 >= w:
                     self.new_line()
@@ -140,12 +155,14 @@ class Screen:
         buf = self.trim_buf()
         fgBuf = self.fgColorBuf[:len(buf)]
         bgBuf = self.bgColorBuf[:len(buf)]
+        styleBuf = self.styleBuf[:len(buf)]
         # be conducive to our printing style by not
         # repeating the same top window over and over.
         if self.top_window_is_old():
             buf = buf[self.env.top_window_height:]
             fgBuf = self.fgColorBuf[self.env.top_window_height:]
             bgBuf = self.bgColorBuf[self.env.top_window_height:]
+            styleBuf = self.styleBuf[self.env.top_window_height:]
 
         if len(buf) > 0:
             # hack? better to set term cursor manually?
@@ -155,24 +172,25 @@ class Screen:
 
         for i in xrange(len(buf)):
             for j in xrange(len(buf[i])):
-                fg, bg = fgBuf[i][j], bgBuf[i][j]
-                write_char_with_color(buf[i][j], fg, bg)
+                fg, bg, style = fgBuf[i][j], bgBuf[i][j], styleBuf[i][j]
+                write_char(buf[i][j], fg, bg, style)
             if i < len(buf) - 1:
-                write_char_with_color('\n', fg, bg)
+                write_char('\n', fg, bg, style)
 
         if len(buf) > 0:
             # if cursor's at zero or edge, move it to bottom otherwise it looks weird.
-            cursor_top = self.env.cursor[0][0]
-            cursor_left = self.env.cursor[0][1]
-            if cursor_left == 0 or cursor_left == self.env.hdr.screen_width_units-1:
-                fg = self.fgColorBuf[cursor_top][cursor_left]
-                bg = self.bgColorBuf[cursor_top][cursor_left]
-                write_char_with_color('\n', fg, bg)
+            cy, cx = self.env.cursor[0]
+            text_past_cursor = cy < len(buf) and not line_empty(buf[cy][cx:])
+            if cx == 0 or text_past_cursor or cx == self.env.hdr.screen_width_units-1:
+                fg = self.fgColorBuf[cy][cx]
+                bg = self.bgColorBuf[cy][cx]
+                style = self.styleBuf[cy][cx]
+                write_char('\n', fg, bg, style)
 
                 # in fact, let's add a little more breathing room
                 for x in xrange(self.env.hdr.screen_width_units):
-                    write_char_with_color(' ', fg, bg)
-                write_char_with_color('\n', fg, bg)
+                    write_char(' ', fg, bg, style)
+                write_char('\n', fg, bg, style)
 
         self.init_bufs()
         self.env.cursor[0] = (self.env.top_window_height, 0)
