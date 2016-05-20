@@ -1251,13 +1251,13 @@ def nop(env, opinfo):
     # Erases window with given number (to background colour);
     # or if -1 it unsplits the screen and clears the lot; or
     # if -2 it clears the screen without unsplitting it.
-    # In cases -1 and -2, the cursor may move (see S 8 for
-    # precise details). 
+    # In cases -1 and -2, the cursor may move.
+    # (see S 15 and S 8.7 for precise details)
 def erase_window(env, opinfo):
     window = opinfo.operands[0]
     if window == 1:
         blank_top_win(env)
-    if window == 0:
+    elif window == 0:
         blank_bottom_win(env)
 
     # don't have curses, so lets just give some space
@@ -1269,8 +1269,8 @@ def erase_window(env, opinfo):
 
 def split_window(env, opinfo):
     env.top_window_height = opinfo.operands[0]
-    if env.cursor[0][1] < env.top_window_height:
-        env.cursor[0] = env.cursor[0][0], env.top_window_height
+    if env.cursor[0][0] < env.top_window_height:
+        env.cursor[0] = env.top_window_height, env.cursor[0][1]
 
     if DBG:
         warn('op: split_window')
