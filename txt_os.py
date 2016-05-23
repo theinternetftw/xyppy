@@ -1,7 +1,17 @@
 
 # os-specific txt controls
 
-import sys
+import sys, atexit
+
+def term_init():
+    if isWindows():
+        pass
+    else: #Unix
+        import termios
+        fd = sys.stdin.fileno()
+        orig = termios.tcgetattr(fd)
+        atexit.register(lambda: termios.tcsetattr(fd, termios.TCSAFLUSH, orig))
+    atexit.register(reset_term_color)
 
 def reset_term_color():
     if isWindows():
@@ -10,9 +20,6 @@ def reset_term_color():
         windll.kernel32.SetConsoleTextAttribute(stdout_handle, 7)
     else:
         sys.stdout.write('\x1b[0m')
-
-import atexit
-atexit.register(reset_term_color)
 
 def write_char_with_color(char, fg_col, bg_col):
     set_term_color(fg_col, bg_col)
@@ -56,32 +63,25 @@ def set_term_color(fg_col, bg_col):
 is_windows_cached = None
 def isWindows():
     global is_windows_cached
-    if is_windows_cached != None:
-        return is_windows_cached
-    try:
-        import msvcrt
-        is_windows_cached = True
-    except ImportError:
-        is_windows_cached = False
+    if is_windows_cached == None:
+        try:
+            import msvcrt
+            is_windows_cached = True
+        except ImportError:
+            is_windows_cached = False
     return is_windows_cached
 
-# at this point pretty different from http://code.activestate.com/recipes/134892/
-# instead now mostly from https://docs.python.org/2/library/termios.html
 def getch():
-    """Gets a single character from standard input.  Does not echo to the screen."""
     if isWindows():
         import msvcrt
         return msvcrt.getch()
     else: #Unix
-        import sys, termios
+        import termios, tty
         fd = sys.stdin.fileno()
         old = termios.tcgetattr(fd)
-        new = termios.tcgetattr(fd)
-        new[3] = new[3] & ~termios.ECHO # [3] == lflags
         try:
-            termios.tcsetattr(fd, termios.TCSADRAIN, new)
+            tty.setcbreak(fd)
             ch = sys.stdin.read(1)
         finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+            termios.tcsetattr(fd, termios.TCSAFLUSH, old)
         return ch
-

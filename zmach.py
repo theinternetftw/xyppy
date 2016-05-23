@@ -4,6 +4,7 @@ from array import array
 import ops
 import formats.blorb as blorb
 from txt import Screen
+from txt_os import term_init
 from debug import warn, err
 
 def to_signed_word(word):
@@ -437,8 +438,8 @@ def main():
     if env.hdr.version not in [3,4,5,7,8]:
         err('unsupported z-machine version: '+str(env.hdr.version))
 
+    term_init()
     ops.setup_opcodes(env)
-
     try:
         if DBG:
             i=0
