@@ -221,10 +221,14 @@ class Env:
             3: '', # mem
             4: ''  # player input (not impld atm)
         }
+        self.screen = self.output_buffer[1]
         self.cursor = {
             0:(0,0),
             1:(0,0)
         }
+        if self.hdr.version <= 4:
+            self.cursor[0] = (self.hdr.screen_height_units-1, 0)
+
         self.text_style = 'normal'
 
         self.selected_ostreams = set([1])
@@ -438,7 +442,8 @@ def main():
     if env.hdr.version not in [3,4,5,7,8]:
         err('unsupported z-machine version: '+str(env.hdr.version))
 
-    term_init()
+    term_init(env)
+    env.screen.first_draw()
     ops.setup_opcodes(env)
     try:
         if DBG:

@@ -3,7 +3,7 @@
 
 import sys, atexit
 
-def term_init():
+def term_init(env):
     if isWindows():
         pass
     else: #Unix
@@ -12,6 +12,8 @@ def term_init():
         orig = termios.tcgetattr(fd)
         atexit.register(lambda: termios.tcsetattr(fd, termios.TCSAFLUSH, orig))
     atexit.register(reset_term_color)
+    atexit.register(lambda: term_cursor_down(env.hdr.screen_height_units))
+    atexit.register(term_show_cursor)
 
 def reset_term_color():
     if isWindows():
@@ -26,6 +28,34 @@ def write_char_with_color(char, fg_col, bg_col):
     if not isWindows() and char == '\n':
         sys.stdout.write('\x1b[K') # insure bg_col covers rest of line
     sys.stdout.write(char)
+
+# TODO: Windows
+def fill_to_eol_with_bg_color():
+    sys.stdout.write('\x1b[K') # insure bg_col covers rest of line
+def term_cursor_to_left_side():
+    sys.stdout.write('\x1b[G')
+def term_cursor_up(count=1):
+    sys.stdout.write('\x1b['+str(count)+'A')
+def term_cursor_down(count=1):
+    sys.stdout.write('\x1b['+str(count)+'B')
+def term_cursor_right(count=1):
+    sys.stdout.write('\x1b['+str(count)+'C')
+def term_cursor_left(count=1):
+    sys.stdout.write('\x1b['+str(count)+'D')
+def term_scroll_down():
+    # need to reset color to avoid adding bg at bottom
+    sys.stdout.write('\x1b[0m')
+    sys.stdout.write('\x1b[S')
+def term_clear_line():
+    sys.stdout.write('\x1b[2K')
+def term_hide_cursor():
+    sys.stdout.write('\x1b[?25l')
+def term_show_cursor():
+    sys.stdout.write('\x1b[?25h')
+def term_clear_screen():
+    sys.stdout.write('\x1b[2J')
+def term_home_cursor():
+    sys.stdout.write('\x1b[f')
 
 def set_term_color(fg_col, bg_col):
     if isWindows():

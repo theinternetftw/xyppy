@@ -934,10 +934,6 @@ def check_arg_count(env, opinfo):
         warn('    branch_on', opinfo.branch_on)
         warn('    result', result)
 
-def get_line_of_input():
-    # this will need to be more sophisticated at some point...
-    return ascii_to_zscii(raw_input().lower())
-
 def handle_read(env, text_buffer, parse_buffer, time=0, routine=0):
 
     if time != 0 or routine != 0:
@@ -946,7 +942,7 @@ def handle_read(env, text_buffer, parse_buffer, time=0, routine=0):
 
     flush(env) # all output needs to be pushed before read
 
-    user_input = get_line_of_input()
+    user_input = ascii_to_zscii(env.screen.get_line_of_input().lower())
 
     fill_text_buffer(env, user_input, text_buffer)
 
@@ -1011,7 +1007,7 @@ def tokenize(env, opinfo):
         warn('    operands', opinfo.operands)
 
 def read_char(env, opinfo):
-    # operands[0] must be 1, but I ran into a z5 that passed no operands
+    # NOTE: operands[0] must be 1, but I ran into a z5 that passed no operands
     # (strictz) so let's just ignore the first operand instead...
     if len(opinfo.operands) > 1:
         if len(opinfo.operands) != 3:
@@ -1020,7 +1016,7 @@ def read_char(env, opinfo):
             if DBG:
                 warn('read_char: interrupts not impl\'d yet!')
     flush(env) # all output needs to be pushed before read
-    c = ascii_to_zscii(getch())[0]
+    c = ascii_to_zscii(env.screen.getch())[0]
     set_var(env, opinfo.store_var, c)
 
     if DBG:
@@ -1247,22 +1243,18 @@ def nop(env, opinfo):
     if DBG:
         warn('op: nop')
 
-# NOTE: incorrectly implemented!! From the spec:
-    # Erases window with given number (to background colour);
-    # or if -1 it unsplits the screen and clears the lot; or
-    # if -2 it clears the screen without unsplitting it.
-    # In cases -1 and -2, the cursor may move.
-    # (see S 15 and S 8.7 for precise details)
 def erase_window(env, opinfo):
-    window = opinfo.operands[0]
-    if window == 1:
-        blank_top_win(env)
-    elif window == 0:
-        blank_bottom_win(env)
+    window = to_signed_word(opinfo.operands[0])
 
-    # don't have curses, so lets just give some space
-    write(env, '\n\n\n\n\n')
-    flush(env)
+    if window in [0, -1]:
+        env.screen.blank_bottom_win()
+        env.cursor[0] = get_cursor_loc_after_erase(env, 0)
+    if window in [1, -1]:
+        env.screen.blank_top_win()
+        env.cursor[1] = get_cursor_loc_after_erase(env, 1)
+    if window == -1:
+        env.top_window_height = 0
+        env.current_window = 0
 
     if DBG:
         warn('op: erase_window')

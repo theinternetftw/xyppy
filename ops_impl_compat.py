@@ -1,5 +1,12 @@
 from debug import warn, err
 
+def get_cursor_loc_after_erase(env, cleared_window):
+    if env.hdr.version >= 5:
+        return 0, 0
+    if cleared_window == 0:
+        return env.hdr.screen_height_units - 1, 0
+    return 0, 0
+
 def get_obj_addr(env, obj):
     tab = env.hdr.obj_tab_base
     if env.hdr.version < 4:
@@ -166,7 +173,13 @@ def ascii_to_zscii(string):
     for c in string:
         if c == '\n':
             result.append(ord('\r'))
-        elif c == '\r' or (ord(c) > 31 and ord(c) < 127):
+        # NOTE: gargoyle just ignores the tab key,
+        # S 3.8.2.3 says output only. But I'd like
+        # to keep readline enabled on linux, so, for
+        # the moment, I make this compromise.
+        elif c == '\t':
+            result.append(ord(' '))
+        elif c in ('\r','\b') or (ord(c) > 31 and ord(c) < 127):
             result.append(ord(c))
         else:
            warn('this ascii char not yet implemented in zscii: '+str(c)+' / '+str(ord(c)))

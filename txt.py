@@ -1,16 +1,9 @@
-from txt_os import getch, write_char_with_color
+from txt_os import *
 
 # warning: hack filled nonsense follows, since I'm
 # converting a system that expects full control over
 # the screen to something that prints linearly in
 # the terminal
-
-def finish_writing_colors(env):
-    pass
-def blank_top_win(env):
-    pass
-def blank_bottom_win(env):
-    pass
 
 def write_char(c, fg_col, bg_col, style):
 
@@ -21,36 +14,42 @@ def write_char(c, fg_col, bg_col, style):
     # no other styling for now
     write_char_with_color(c, fg_col, bg_col)
 
-class Screen:
+class ScreenChar(object):
+    def __init__(self, char, fgCol, bgCol, style):
+        self.char = char
+        self.fgCol = fgCol
+        self.bgCol = bgCol
+        self.style = style
+    def __str__(self):
+        return self.char
+
+class Screen(object):
     def __init__(self, env):
         self.env = env
-        self.last_top_window = ''
         self.init_bufs()
 
     def init_bufs(self):
-        self.textBuf = self.make_screen_buf(' ')
-        self.fgColorBuf = self.make_screen_buf(self.env.fg_color)
-        self.bgColorBuf = self.make_screen_buf(self.env.bg_color)
-        self.styleBuf = self.make_screen_buf('normal')
+        self.textBuf = self.make_screen_buf()
 
-    def make_screen_buf(self, default_val):
-        buf = []
-        for i in xrange(self.env.hdr.screen_height_units):
-            buf.append(self.make_buf_line(default_val))
-        return buf
+    def make_screen_buf(self):
+        return [self.make_screen_line() for i in xrange(self.env.hdr.screen_height_units)]
 
-    def make_buf_line(self, default_val):
-        line = []
-        for i in xrange(self.env.hdr.screen_width_units):
-            line.append(default_val)
-        return line
+    def make_screen_line(self):
+        c, fg, bg, style = ' ', self.env.fg_color, self.env.bg_color, 'normal'
+        return [ScreenChar(c, fg, bg, style) for i in xrange(self.env.hdr.screen_width_units)]
 
-    def append_buf_line(self):
-        self.textBuf.append(self.make_buf_line(' '))
-        self.fgColorBuf.append(self.make_buf_line(self.env.fg_color))
-        self.bgColorBuf.append(self.make_buf_line(self.env.bg_color))
-        # pretty sure this is right, see S 8.7.3.1, 8.7.3.2
-        self.styleBuf.append(self.make_buf_line('normal'))
+    def blank_top_win(self):
+        env = self.env
+        term_home_cursor()
+        for i in xrange(env.top_window_height):
+            write_char('\n', env.fg_color, env.bg_color, env.text_style)
+            self.textBuf[i] = self.make_screen_line()
+
+    def blank_bottom_win(self):
+        if buf_empty(self.textBuf):
+            return
+        for i in xrange(self.env.top_window_height, self.env.hdr.screen_height_units):
+            self.scroll()
 
     def write(self, text):
         if self.env.use_buffered_output:
@@ -58,25 +57,51 @@ class Screen:
         else:
             self.write_unwrapped(text)
 
-    def new_line(self):
+    def scroll(self, lines=1):
         env = self.env
-        hdr = self.env.hdr
-        h = hdr.screen_height_units
-        w = hdr.screen_width_units
-        win = env.current_window
+        for i in range(lines):
+            top_win = self.textBuf[:env.top_window_height]
+            term_home_cursor()
+            self.overwrite_line(self.textBuf[env.top_window_height])
+            term_scroll_down()
+            self.textBuf = top_win + self.textBuf[env.top_window_height+1:] + [self.make_screen_line()]
+            self.flush() # TODO: fun but slow, make a config option
+
+    def overwrite_line(self, new_line):
+        term_clear_line()
+        for c in new_line:
+            write_char(c.char, c.fgCol, c.bgCol, c.style)
+        fill_to_eol_with_bg_color()
+
+    def new_line(self):
+        env, win = self.env, self.env.current_window
+        w, h = env.hdr.screen_width_units, env.hdr.screen_height_units
         row, col = env.cursor[win]
         while col < w-1:
-            # FIXME: ? does this muck with S 8.7.3.1?
-            # i.e. do I need to temp turn off reverse video here if on?
-            self.write_unwrapped(' ') # for bg_color
-            row, col = env.cursor[win]
-        if win == 0 or row+1 < h:
-            env.cursor[win] = row+1, 0
-            while row+1 >= len(self.textBuf):
-                self.append_buf_line()
+            # S 8.7.3.1 (reverse video rules)
+            style = 'normal' if env.text_style == 'reverse_video' else env.text_style
+            self.textBuf[row][col] = ScreenChar(' ', env.fg_color, env.bg_color, style)
+            env.cursor[win] = row, col
+            col += 1
+        if win == 0:
+            if row+1 == len(self.textBuf):
+                self.scroll()
+                env.cursor[win] = row, 0
+            else:
+                env.cursor[win] = row+1, 0
         else:
-            env.cursor[win] = row, 0
+            if row+1 < env.top_window_height:
+                env.cursor[win] = row+1, 0
 
+    # TODO: this isn't quite right. need to look at old line, and wrap
+    # correctly even when its sent in character by character (gargoyle
+    # does this). Another solution could be to just save things in a
+    # buffer and wrap it right before flush, but figuring out how to
+    # handle cursor moves, etc would be more complicated, would probably
+    # have to think about exactly when to flush a lot more.
+    # Example where you can see if you're doing it right is the score
+    # printout when you try and immediately quit Trinity ("TOURIST"
+    # should word-wrap correctly).
     def write_wrapped(self, text):
         env = self.env
         win = env.current_window
@@ -117,93 +142,74 @@ class Screen:
                     while len(text) > 0 and text[0] == ' ':
                         text = text[1:]
 
-    # NOTE/TODO?: spec *suggests* just staying at
-    # bottom right when you run out of space in top
-    # window. That keeps you from overwriting what
-    # you just wrote. Right now we jump left with
-    # every newline and start overwriting that line.
     def write_unwrapped(self, text):
         env = self.env
         win = env.current_window
         w = env.hdr.screen_width_units
-        while env.cursor[win][0] > len(self.textBuf) - 1:
-            self.append_buf_line()
         for c in text:
             if c == '\n':
                 self.new_line()
             else:
                 y, x = env.cursor[win]
-                self.textBuf[y][x] = c
-                self.fgColorBuf[y][x] = env.fg_color
-                self.bgColorBuf[y][x] = env.bg_color
-                self.styleBuf[y][x] = env.text_style
-                env.cursor[win] = y, x+1
-                if x+1 >= w:
+                self.textBuf[y][x] = ScreenChar(c, env.fg_color, env.bg_color, env.text_style)
+                if x+1 < w:
+                    env.cursor[win] = y, x+1
+                else:
                     self.new_line()
 
-    def top_window_is_old(self):
-        top_window_buf = self.textBuf[:self.env.top_window_height]
-        top_window_lines = map(lambda x: ''.join(x), top_window_buf)
-        top_window = '\n'.join(top_window_lines)
-        if top_window == self.last_top_window:
-            return True
-        self.last_top_window = top_window
-        return False
-
-    # FIXME: Color, (set term cursor? would fix bureaucracy...)
     def flush(self):
-        buf = self.trim_buf()
-        fgBuf = self.fgColorBuf[:len(buf)]
-        bgBuf = self.bgColorBuf[:len(buf)]
-        styleBuf = self.styleBuf[:len(buf)]
-        # be conducive to our printing style by not
-        # repeating the same top window over and over.
-        if self.top_window_is_old():
-            buf = buf[self.env.top_window_height:]
-            fgBuf = self.fgColorBuf[self.env.top_window_height:]
-            bgBuf = self.bgColorBuf[self.env.top_window_height:]
-            styleBuf = self.styleBuf[self.env.top_window_height:]
-
-        if len(buf) > 0:
-            # hack? better to set term cursor manually?
-            cursor_left = self.env.cursor[0][1]
-            if cursor_left != 0 and line_empty(buf[-1][cursor_left:]):
-                buf[-1] = buf[-1][:self.env.cursor[0][1]]
-
+        term_home_cursor()
+        buf = self.textBuf
         for i in xrange(len(buf)):
             for j in xrange(len(buf[i])):
-                fg, bg, style = fgBuf[i][j], bgBuf[i][j], styleBuf[i][j]
-                write_char(buf[i][j], fg, bg, style)
-            if i < len(buf) - 1:
-                write_char('\n', fg, bg, style)
+                c = buf[i][j]
+                write_char(c.char, c.fgCol, c.bgCol, c.style)
+            fill_to_eol_with_bg_color()
+            write_char('\n', c.fgCol, c.bgCol, c.style)
 
-        if len(buf) > 0:
-            # if cursor's at zero or edge, move it to bottom otherwise it looks weird.
-            cy, cx = self.env.cursor[0]
-            text_past_cursor = cy < len(buf) and not line_empty(buf[cy][cx:])
-            if cx == 0 or text_past_cursor or cx == self.env.hdr.screen_width_units-1:
-                fg = self.fgColorBuf[cy][cx]
-                bg = self.bgColorBuf[cy][cx]
-                style = self.styleBuf[cy][cx]
-                write_char('\n', fg, bg, style)
+    def get_line_of_input(self):
+        env = self.env
+        term_home_cursor()
+        row, col = env.cursor[env.current_window]
+        term_cursor_down(row)
+        term_cursor_right(col)
+        term_show_cursor()
+        text = raw_input()[:120] # 120 char limit seen on gargoyle
+        for c in text:
+            if c < '\r' and c not in ('\t',):
+                print 'FOUND THING:', repr(c)
+                raw_input()
+                break
+        term_hide_cursor()
+        for t in text:
+            self.write_unwrapped(t)
+        self.new_line()
+        term_home_cursor()
+        return text
 
-                # in fact, let's add a little more breathing room
-                for x in xrange(self.env.hdr.screen_width_units):
-                    write_char(' ', fg, bg, style)
-                write_char('\n', fg, bg, style)
+    def first_draw(self):
+        term_hide_cursor()
+        term_clear_screen()
+        term_home_cursor()
+        env = self.env
+        for i in xrange(env.hdr.screen_height_units):
+            write_char('\n', env.fg_color, env.bg_color, env.text_style)
 
-        self.init_bufs()
-        self.env.cursor[0] = (self.env.top_window_height, 0)
+    def getch(self):
+        c = getch()
+        if ord(c) == 127: #delete should be backspace
+            c = '\b'
+        return c
 
-    def trim_buf(self):
-        b = self.textBuf[:]
-        while len(b) > 0 and len(b) > self.env.top_window_height and line_empty(b[-1]):
-            b = b[:-1]
-        return b
+def buf_empty(buf):
+    for line in buf:
+        if not line_empty(line):
+            return False
+    return True
 
 def line_empty(line):
     for c in line:
-        if c != ' ':
+        if c.char != ' ':
             return False
     return True
 
@@ -223,15 +229,4 @@ def write(env, text):
 def flush(env):
     if 3 not in env.selected_ostreams:
         if 1 in env.selected_ostreams:
-            env.output_buffer[1].flush()
-
-'''
-            # FIXME: get this working again if it's not?
-            # (it *almost* is...)
-
-            # throw away excess top window *only* after flush
-            # (to enable stuff like trinity's quotes)
-            for line in env.output_buffer[1][1].keys():
-                if line >= env.top_window_height:
-                    del env.output_buffer[1][1][line]
-'''
+            env.screen.flush()
