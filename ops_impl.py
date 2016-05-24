@@ -1338,8 +1338,10 @@ def set_cursor(env, opinfo):
     if env.current_window == 1:
         if col > env.hdr.screen_width_units:
             err('set_cursor: set outside screen width')
-        if row > env.top_window_height:
-            err('set_cursor: set outside top window height')
+        # NOTE: this is now a screen check, not a window
+        # check, as I found a game that goes outside the window
+        if row > env.hdr.screen_height_units:
+            err('set_cursor: set outside screen height')
         # fix that row,col have a 1,1 origin
         env.cursor[env.current_window] = row-1, col-1
 
