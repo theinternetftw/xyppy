@@ -1067,7 +1067,6 @@ def buffer_mode(env, opinfo):
 
 def output_stream(env, opinfo):
     stream = to_signed_word(opinfo.operands[0])
-    #print '\nOUTPUTSTREAM:',stream
     if stream < 0:
         stream = abs(stream)
         if stream == 3:

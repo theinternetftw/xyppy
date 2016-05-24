@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 import struct
 
@@ -56,17 +58,17 @@ def print_info(filename):
         fdata = f.read()
         formChunk = FormChunk.from_chunk(Chunk.from_data(fdata))
         for chunk in formChunk.chunks:
-            print chunk.name, chunk.size
+            print(chunk.name, chunk.size)
             if chunk.name == 'RIdx':
                 rIdxChunk = RIdxChunk.from_chunk(chunk)
                 for r in rIdxChunk.resources:
-                    print '\t', r.usage, r.number, r.start
-                    print '\t\t', Chunk.from_data(fdata[r.start:])
+                    print('\t', r.usage, r.number, r.start)
+                    print('\t\t', Chunk.from_data(fdata[r.start:]))
             elif chunk.name == 'IFmd':
-                print chunk.data
-        print
+                print(chunk.data)
+        print()
 
 for fname in sys.argv[1:]:
-    print fname[fname.rfind('/'):]
+    print(fname[fname.rfind('/'):])
     print_info(fname)
 """

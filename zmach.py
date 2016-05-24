@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from array import array
 
@@ -456,9 +457,9 @@ def main():
             while True:
                 step(env)
     except KeyboardInterrupt:
-        print
-        print 'zmach.py: exiting as requested.'
-        print
+        print()
+        print('zmach.py: exiting as requested.')
+        print()
 
 
 if __name__ == '__main__':

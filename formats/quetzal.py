@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import struct
 from iff import Chunk, FormChunk, packHdr
@@ -218,20 +219,20 @@ def load_to_env(env, filename):
     try:
         subname, hdrChunk, memChunk, frames = read(filename)
     except IOError as (errno, strerror):
-        print 'error reading file: '+strerror
+        print('error reading file: '+strerror)
         return False
     except:
-        print 'error decoding quetzal save file'
+        print('error decoding quetzal save file')
         return False
 
     if subname != 'IFZS':
-        print 'not a quetzal save file'
+        print('not a quetzal save file')
     if env.hdr.release != hdrChunk.release:
-        print 'release doesn\'t match'
+        print('release doesn\'t match')
     elif env.hdr.serial != hdrChunk.serial:
-        print 'serial doesn\'t match'
+        print('serial doesn\'t match')
     elif env.hdr.checksum != hdrChunk.checksum:
-        print 'checksum does\'t match'
+        print('checksum does\'t match')
     else:
         env.reset()
         for i in xrange(len(memChunk.mem)):

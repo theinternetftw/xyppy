@@ -175,11 +175,6 @@ class Screen(object):
         term_cursor_right(col)
         term_show_cursor()
         text = raw_input()[:120] # 120 char limit seen on gargoyle
-        for c in text:
-            if c < '\r' and c not in ('\t',):
-                print 'FOUND THING:', repr(c)
-                raw_input()
-                break
         term_hide_cursor()
         for t in text:
             self.write_unwrapped(t)
