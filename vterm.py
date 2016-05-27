@@ -64,7 +64,7 @@ class Screen(object):
             self.overwrite_line(self.textBuf[env.top_window_height])
             term.scroll_down()
             self.textBuf = top_win + self.textBuf[env.top_window_height+1:] + [self.make_screen_line()]
-            self.flush() # TODO: fun but slow, make a config option
+            #self.flush() # TODO: fun but slow, make a config option
 
     def overwrite_line(self, new_line):
         term.clear_line()

@@ -4,7 +4,9 @@ import sys, atexit
 
 def init(env):
     if isWindows():
-        pass
+        from ctypes import windll, c_ulong
+        stdout_handle = windll.kernel32.GetStdHandle(c_ulong(-11))
+        windll.kernel32.SetConsoleMode(stdout_handle, 7)
     else: #Unix
         import termios
         fd = sys.stdin.fileno()
@@ -16,7 +18,7 @@ def init(env):
 
 def reset_color():
     if isWindows():
-        from ctypes import windll, c_ulong, byref
+        from ctypes import windll, c_ulong
         stdout_handle = windll.kernel32.GetStdHandle(c_ulong(-11))
         windll.kernel32.SetConsoleTextAttribute(stdout_handle, 7)
     else:
@@ -54,40 +56,14 @@ def show_cursor():
 def clear_screen():
     sys.stdout.write('\x1b[2J')
 def home_cursor():
-    sys.stdout.write('\x1b[f')
+    sys.stdout.write('\x1b[H')
 
 def set_color(fg_col, bg_col):
-    if isWindows():
-        from ctypes import windll, c_ulong
-        stdout_handle = windll.kernel32.GetStdHandle(c_ulong(-11))
-
-        # having trouble with white bg, black text.
-        # let's leave that out for now.
-        if fg_col == 2:
-            fg_col = 9
-
-        colormap = {
-            2: 0,
-            3: 8|4,
-            4: 8|2,
-            5: 8|6,
-            6: 8|1,
-            7: 8|5,
-            8: 8|3,
-            9: 7 # do 8|7 (15) for bright white, but since cmd.exe uses 7 I will too...
-        }
-        # this doesn't handle "leave alone" colors yet
-        # to do that with windows, will have to save current cols
-        # and reapply them here if fg_col or bg_col are 0!
-        # also see comment above for why bg_col is commented out
-        col = colormap[fg_col] # | (colormap[bg_col] << 4)
-        windll.kernel32.SetConsoleTextAttribute(stdout_handle, col)
-    else:
-        # assuming VT100 compat
-        color = str(fg_col + 28)
-        sys.stdout.write('\x1b['+color+'m')
-        color = str(bg_col + 38)
-        sys.stdout.write('\x1b['+color+'m')
+    # assuming VT100 compat
+    color = str(fg_col + 28)
+    sys.stdout.write('\x1b['+color+'m')
+    color = str(bg_col + 38)
+    sys.stdout.write('\x1b['+color+'m')
 
 is_windows_cached = None
 def isWindows():
