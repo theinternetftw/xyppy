@@ -1,12 +1,11 @@
 # os-specific txt controls
 
-import sys, atexit
+import sys, atexit, ctypes
 
 def init(env):
     if isWindows():
-        from ctypes import windll, c_ulong
-        stdout_handle = windll.kernel32.GetStdHandle(c_ulong(-11))
-        windll.kernel32.SetConsoleMode(stdout_handle, 7)
+        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.SetConsoleMode(stdout_handle, 7)
     else: #Unix
         import termios
         fd = sys.stdin.fileno()
@@ -18,9 +17,8 @@ def init(env):
 
 def reset_color():
     if isWindows():
-        from ctypes import windll, c_ulong
-        stdout_handle = windll.kernel32.GetStdHandle(c_ulong(-11))
-        windll.kernel32.SetConsoleTextAttribute(stdout_handle, 7)
+        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.SetConsoleTextAttribute(stdout_handle, 7)
     else:
         sys.stdout.write('\x1b[0m')
 
@@ -30,7 +28,33 @@ def write_char_with_color(char, fg_col, bg_col):
         fill_to_eol_with_bg_color() # insure bg_col covers rest of line
     sys.stdout.write(char)
 
-# TODO: Windows
+class COORD(ctypes.Structure):
+    _fields_ = [("X", ctypes.c_short), ("Y", ctypes.c_short)]
+
+class SMALL_RECT(ctypes.Structure):
+    _fields_ = [("Left", ctypes.c_short), ("Top", ctypes.c_short),
+                ("Right", ctypes.c_short), ("Bottom", ctypes.c_short)]
+
+class CONSOLE_SCREEN_BUFFER_INFO(ctypes.Structure):
+    _fields_ = [("dwSize", COORD),
+                ("dwCursorPosition", COORD),
+                ("wAttributes", ctypes.c_ushort),
+                ("srWindow", SMALL_RECT),
+                ("dwMaximumWindowSize", COORD)]
+
+def scroll_down():
+    # need to reset color to avoid adding bg at bottom
+    sys.stdout.write('\x1b[0m')
+    if isWindows():
+        cbuf = CONSOLE_SCREEN_BUFFER_INFO()
+        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
+        if cbuf.srWindow.Bottom < cbuf.dwSize.Y - 1:
+            cbuf.srWindow.Bottom += 1
+            cbuf.srWindow.Top += 1
+            ctypes.windll.kernel32.SetConsoleWindowInfo(stdout_handle, 1, ctypes.byref(cbuf.srWindow))
+    else:
+        sys.stdout.write('\x1b[S')
 def fill_to_eol_with_bg_color():
     sys.stdout.write('\x1b[K') # insure bg_col covers rest of line
 def cursor_to_left_side():
@@ -43,10 +67,6 @@ def cursor_right(count=1):
     sys.stdout.write('\x1b['+str(count)+'C')
 def cursor_left(count=1):
     sys.stdout.write('\x1b['+str(count)+'D')
-def scroll_down():
-    # need to reset color to avoid adding bg at bottom
-    sys.stdout.write('\x1b[0m')
-    sys.stdout.write('\x1b[S')
 def clear_line():
     sys.stdout.write('\x1b[2K')
 def hide_cursor():
