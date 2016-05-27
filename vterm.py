@@ -1,4 +1,4 @@
-from txt_os import *
+import term
 
 # warning: hack filled nonsense follows, since I'm
 # converting a system that expects full control over
@@ -6,13 +6,12 @@ from txt_os import *
 # the terminal
 
 def write_char(c, fg_col, bg_col, style):
-
     # '\n' check b/c reverse video col isn't suppose to stretch across window
     # guessing that based on S 8.7.3.1
     if style == 'reverse_video' and c != '\n':
         fg_col, bg_col = bg_col, fg_col
     # no other styling for now
-    write_char_with_color(c, fg_col, bg_col)
+    term.write_char_with_color(c, fg_col, bg_col)
 
 class ScreenChar(object):
     def __init__(self, char, fgCol, bgCol, style):
@@ -40,7 +39,7 @@ class Screen(object):
 
     def blank_top_win(self):
         env = self.env
-        term_home_cursor()
+        term.home_cursor()
         for i in xrange(env.top_window_height):
             write_char('\n', env.fg_color, env.bg_color, env.text_style)
             self.textBuf[i] = self.make_screen_line()
@@ -61,17 +60,17 @@ class Screen(object):
         env = self.env
         for i in range(lines):
             top_win = self.textBuf[:env.top_window_height]
-            term_home_cursor()
+            term.home_cursor()
             self.overwrite_line(self.textBuf[env.top_window_height])
-            term_scroll_down()
+            term.scroll_down()
             self.textBuf = top_win + self.textBuf[env.top_window_height+1:] + [self.make_screen_line()]
             self.flush() # TODO: fun but slow, make a config option
 
     def overwrite_line(self, new_line):
-        term_clear_line()
+        term.clear_line()
         for c in new_line:
             write_char(c.char, c.fgCol, c.bgCol, c.style)
-        fill_to_eol_with_bg_color()
+        term.fill_to_eol_with_bg_color()
 
     def new_line(self):
         env, win = self.env, self.env.current_window
@@ -158,7 +157,7 @@ class Screen(object):
                     self.new_line()
 
     def flush(self):
-        term_home_cursor()
+        term.home_cursor()
         buf = self.textBuf
         for i in xrange(len(buf)):
             for j in xrange(len(buf[i])):
@@ -168,30 +167,30 @@ class Screen(object):
 
     def get_line_of_input(self):
         env = self.env
-        term_home_cursor()
+        term.home_cursor()
         row, col = env.cursor[env.current_window]
-        term_cursor_down(row)
-        term_cursor_right(col)
-        term_show_cursor()
-        set_term_color(env.fg_color, env.bg_color)
+        term.cursor_down(row)
+        term.cursor_right(col)
+        term.show_cursor()
+        term.set_color(env.fg_color, env.bg_color)
         text = raw_input()[:120] # 120 char limit seen on gargoyle
-        term_hide_cursor()
+        term.hide_cursor()
         for t in text:
             self.write_unwrapped(t)
         self.new_line()
-        term_home_cursor()
+        term.home_cursor()
         return text
 
     def first_draw(self):
-        term_hide_cursor()
-        term_clear_screen()
-        term_home_cursor()
+        term.hide_cursor()
+        term.clear_screen()
+        term.home_cursor()
         env = self.env
         for i in xrange(env.hdr.screen_height_units):
             write_char('\n', env.fg_color, env.bg_color, env.text_style)
 
     def getch(self):
-        c = getch()
+        c = term.getch()
         if ord(c) == 127: #delete should be backspace
             c = '\b'
         # TODO: Arrow keys, function keys, keypad?
@@ -225,7 +224,7 @@ def write(env, text):
 
     for stream in env.selected_ostreams:
         if stream == 1:
-            env.output_buffer[stream].write(text)
+            env.screen.write(text)
         else:
             env.output_buffer[stream] += text
 

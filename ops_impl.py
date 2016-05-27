@@ -8,7 +8,7 @@ import random
 from zmach import to_signed_word, DBG
 from debug import warn, err
 from ops_impl_compat import *
-from txt import *
+from vterm import write, flush
 
 import formats.quetzal as quetzal
 

@@ -4,9 +4,9 @@ from array import array
 
 import urllib2
 import ops
+import term
+import vterm
 import formats.blorb as blorb
-from txt import Screen
-from txt_os import term_init
 from debug import warn, err
 
 def to_signed_word(word):
@@ -218,7 +218,7 @@ class Env:
         self.last_pc_store_var = None
 
         self.output_buffer = {
-            1: Screen(self),
+            1: vterm.Screen(self),
             2: '', # transcript
             3: '', # mem
             4: ''  # player input (not impld atm)
@@ -453,7 +453,7 @@ def main():
     if env.hdr.version not in [3,4,5,7,8]:
         err('unsupported z-machine version: '+str(env.hdr.version))
 
-    term_init(env)
+    term.init(env)
     env.screen.first_draw()
     ops.setup_opcodes(env)
     try:
