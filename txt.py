@@ -164,7 +164,6 @@ class Screen(object):
             for j in xrange(len(buf[i])):
                 c = buf[i][j]
                 write_char(c.char, c.fgCol, c.bgCol, c.style)
-            fill_to_eol_with_bg_color()
             write_char('\n', c.fgCol, c.bgCol, c.style)
 
     def get_line_of_input(self):
@@ -174,6 +173,7 @@ class Screen(object):
         term_cursor_down(row)
         term_cursor_right(col)
         term_show_cursor()
+        set_term_color(env.fg_color, env.bg_color)
         text = raw_input()[:120] # 120 char limit seen on gargoyle
         term_hide_cursor()
         for t in text:

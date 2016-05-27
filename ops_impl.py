@@ -1354,11 +1354,11 @@ def set_colour(env, opinfo):
         err('set_color attempted illegal color')
     if fg_col == 1:
         fg_col = env.hdr.default_fg_color
-    elif fg_col != 0:
+    if fg_col != 0:
         env.fg_color = fg_col
     if bg_col == 1:
         bg_col = env.hdr.default_bg_color
-    elif bg_col != 0:
+    if bg_col != 0:
         env.bg_color = bg_col
 
     if DBG:

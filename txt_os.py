@@ -25,8 +25,8 @@ def reset_term_color():
 
 def write_char_with_color(char, fg_col, bg_col):
     set_term_color(fg_col, bg_col)
-    if not isWindows() and char == '\n':
-        sys.stdout.write('\x1b[K') # insure bg_col covers rest of line
+    if char == '\n':
+        fill_to_eol_with_bg_color() # insure bg_col covers rest of line
     sys.stdout.write(char)
 
 # TODO: Windows
