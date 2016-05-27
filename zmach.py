@@ -2,6 +2,7 @@ from __future__ import print_function
 import sys
 from array import array
 
+import urllib2
 import ops
 import formats.blorb as blorb
 from txt import Screen
@@ -431,14 +432,23 @@ DBG = 0
 
 def main():
     if len(sys.argv) != 2:
-        print('usage: python zmach.py STORY_FILE.z3')
+        print('usage examples:')
+        print('    python zmach.py STORY_FILE.z5')
+        print('    python zmach.py http://example.com/STORY_FILE.z5')
         sys.exit()
 
-    with open(sys.argv[1], 'rb') as f:
+    uri = sys.argv[1]
+    if any(map(uri.startswith, ['http://', 'https://', 'ftp://'])):
+        f = urllib2.urlopen(uri)
         mem = f.read()
-        if blorb.is_blorb(mem):
-            mem = blorb.get_code(mem)
-        env = Env(mem)
+        f.close()
+    else:
+        with open(uri, 'rb') as f:
+            mem = f.read()
+
+    if blorb.is_blorb(mem):
+        mem = blorb.get_code(mem)
+    env = Env(mem)
 
     if env.hdr.version not in [3,4,5,7,8]:
         err('unsupported z-machine version: '+str(env.hdr.version))
