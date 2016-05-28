@@ -1251,13 +1251,17 @@ def erase_window(env, opinfo):
 
     if window in [0, -1]:
         env.screen.blank_bottom_win()
-        env.cursor[0] = get_cursor_loc_after_erase(env, 0)
     if window in [1, -1]:
         env.screen.blank_top_win()
-        env.cursor[1] = get_cursor_loc_after_erase(env, 1)
+
     if window == -1:
         env.top_window_height = 0
         env.current_window = 0
+
+    if window in [0, -1]:
+        env.cursor[0] = get_cursor_loc_after_erase(env, 0)
+    if window in [1, -1]:
+        env.cursor[1] = get_cursor_loc_after_erase(env, 1)
 
     if DBG:
         warn('op: erase_window')

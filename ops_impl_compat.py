@@ -2,11 +2,13 @@ from debug import warn, err
 import term
 
 def get_cursor_loc_after_erase(env, cleared_window):
-    if env.hdr.version >= 5:
-        return 0, 0
     if cleared_window == 0:
-        return env.hdr.screen_height_units - 1, 0
-    return 0, 0
+        if env.hdr.version >= 5:
+            return env.top_window_height, 0
+        else:
+            return env.hdr.screen_height_units - 1, 0
+    else:
+        return 0, 0
 
 def get_obj_addr(env, obj):
     tab = env.hdr.obj_tab_base
