@@ -11,9 +11,10 @@ def init(env):
         fd = sys.stdin.fileno()
         orig = termios.tcgetattr(fd)
         atexit.register(lambda: termios.tcsetattr(fd, termios.TCSAFLUSH, orig))
+    atexit.register(show_cursor)
     atexit.register(reset_color)
     atexit.register(lambda: cursor_down(env.hdr.screen_height_units))
-    atexit.register(show_cursor)
+    atexit.register(home_cursor)
 
 def reset_color():
     if is_windows():

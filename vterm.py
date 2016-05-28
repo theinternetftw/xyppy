@@ -173,8 +173,8 @@ class Screen(object):
         row, col = env.cursor[env.current_window]
         term.cursor_down(row)
         term.cursor_right(col)
-        term.show_cursor()
         term.set_color(env.fg_color, env.bg_color)
+        term.show_cursor()
         text = raw_input()[:120] # 120 char limit seen on gargoyle
         term.hide_cursor()
         for t in text:
