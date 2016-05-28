@@ -42,6 +42,18 @@ class CONSOLE_SCREEN_BUFFER_INFO(ctypes.Structure):
                 ("srWindow", SMALL_RECT),
                 ("dwMaximumWindowSize", COORD)]
 
+def get_size():
+    if is_windows():
+        cbuf = CONSOLE_SCREEN_BUFFER_INFO()
+        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
+        return cbuf.srWindow.Right-cbuf.srWindow.Left, cbuf.srWindow.Bottom-cbuf.srWindow.Top
+    else:
+        import fcntl, termios, struct
+        result = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, struct.pack('HHHH', 0, 0, 0, 0))
+        h, w, hp, wp = struct.unpack('HHHH', result)
+        return w, h
+
 def scroll_down():
     # need to reset color to avoid adding bg at bottom
     sys.stdout.write('\x1b[0m')

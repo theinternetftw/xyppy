@@ -190,11 +190,14 @@ def set_standard_flags(hdr):
     # use the apple 2e interp # to fix Beyond Zork compat
     hdr.interp_number = 2
 
-    hdr.screen_width_chars = 80
-    hdr.screen_height_lines = 40
+    MAXIMUM_WIDTH = 80
+    term_w, term_h = term.get_size()
 
-    hdr.screen_width_units = 80
-    hdr.screen_height_units = 40
+    hdr.screen_width_units = min(MAXIMUM_WIDTH, term_w)
+    hdr.screen_height_units = term_h
+
+    hdr.screen_width_chars = hdr.screen_width_units
+    hdr.screen_height_lines = hdr.screen_height_units
 
     hdr.font_width_units = 1
     hdr.font_height_units = 1

@@ -74,9 +74,8 @@ class Screen(object):
 
     def new_line(self):
         env, win = self.env, self.env.current_window
-        w, h = env.hdr.screen_width_units, env.hdr.screen_height_units
         row, col = env.cursor[win]
-        while col < w-1:
+        while col < env.hdr.screen_width_units-1:
             # S 8.7.3.1 (reverse video rules)
             style = 'normal' if env.text_style == 'reverse_video' else env.text_style
             self.textBuf[row][col] = ScreenChar(' ', env.fg_color, env.bg_color, style)
@@ -163,7 +162,10 @@ class Screen(object):
             for j in xrange(len(buf[i])):
                 c = buf[i][j]
                 write_char(c.char, c.fgCol, c.bgCol, c.style)
-            write_char('\n', c.fgCol, c.bgCol, c.style)
+            if i < len(buf) - 1:
+                write_char('\n', c.fgCol, c.bgCol, c.style)
+            else:
+                term.fill_to_eol_with_bg_color()
 
     def get_line_of_input(self):
         env = self.env
@@ -186,8 +188,9 @@ class Screen(object):
         term.clear_screen()
         term.home_cursor()
         env = self.env
-        for i in xrange(env.hdr.screen_height_units):
+        for i in xrange(env.hdr.screen_height_units-1):
             write_char('\n', env.fg_color, env.bg_color, env.text_style)
+        term.fill_to_eol_with_bg_color()
 
     def getch(self):
         c = term.getch()
