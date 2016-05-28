@@ -171,6 +171,8 @@ class Screen(object):
         term.cursor_down(row)
         term.cursor_right(col)
         term.set_color(env.fg_color, env.bg_color)
+        if line_empty(self.textBuf[row][col:]):
+            term.fill_to_eol_with_bg_color()
         term.show_cursor()
         text = raw_input()[:120] # 120 char limit seen on gargoyle
         term.hide_cursor()
