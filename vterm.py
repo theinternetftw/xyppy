@@ -14,11 +14,11 @@ def write_char(c, fg_col, bg_col, style):
     term.write_char_with_color(c, fg_col, bg_col)
 
 class ScreenChar(object):
-    def __init__(self, char, fgCol, bgCol, style):
+    def __init__(self, char, fg_color, bg_color, text_style):
         self.char = char
-        self.fgCol = fgCol
-        self.bgCol = bgCol
-        self.style = style
+        self.fg_color = fg_color
+        self.bg_color = bg_color
+        self.text_style = text_style
     def __str__(self):
         return self.char
 
@@ -26,7 +26,7 @@ class Screen(object):
     def __init__(self, env):
         self.env = env
         self.init_bufs()
-        self.wrapBuf = ''
+        self.wrapBuf = []
 
     def init_bufs(self):
         self.textBuf = self.make_screen_buf()
@@ -52,10 +52,12 @@ class Screen(object):
             self.scroll()
 
     def write(self, text):
-        if self.env.current_window == 0 and self.env.use_buffered_output:
-            self.write_wrapped(text)
+        env = self.env
+        as_screenchars = map(lambda c: ScreenChar(c, env.fg_color, env.bg_color, env.text_style), text)
+        if env.current_window == 0 and env.use_buffered_output:
+            self.write_wrapped(as_screenchars)
         else:
-            self.write_unwrapped(text)
+            self.write_unwrapped(as_screenchars)
 
     def scroll(self, lines=1):
         env = self.env
@@ -70,23 +72,14 @@ class Screen(object):
     def overwrite_line(self, new_line):
         term.clear_line()
         for c in new_line:
-            write_char(c.char, c.fgCol, c.bgCol, c.style)
+            write_char(c.char, c.fg_color, c.bg_color, c.text_style)
         term.fill_to_eol_with_bg_color()
 
     def new_line(self):
         env, win = self.env, self.env.current_window
         row, col = env.cursor[win]
-        while col < env.hdr.screen_width_units:
-            # S 8.7.3.1 (reverse video rules)
-            # FIXME: apparently the above isn't true, because it breaks
-            # several games. however, 1 game is slightly *more* broken by
-            # just passing the current style so... *shrug*
-            # style = 'normal' if env.text_style == 'reverse_video' else env.text_style
-            self.textBuf[row][col] = ScreenChar(' ', env.fg_color, env.bg_color, env.text_style)
-            env.cursor[win] = row, col
-            col += 1
         if win == 0:
-            if row+1 == len(self.textBuf):
+            if row+1 == env.hdr.screen_height_units:
                 self.scroll()
                 env.cursor[win] = row, 0
             else:
@@ -94,64 +87,69 @@ class Screen(object):
         else:
             if row+1 < env.top_window_height:
                 env.cursor[win] = row+1, 0
+            else:
+                env.cursor[win] = row, 0
 
-    def write_wrapped(self, text):
-        self.wrapBuf += text
+    def write_wrapped(self, text_as_screenchars):
+        self.wrapBuf += text_as_screenchars
+
+    # for bg_color propagation (only happens when a newline comes in via wrapping, it seems)
+    def new_line_via_spaces(self, fg_color, bg_color, text_style):
+        env, win = self.env, self.env.current_window
+        row, col = env.cursor[win]
+        self.write_unwrapped([ScreenChar(' ', fg_color, bg_color, text_style)])
+        while env.cursor[win][1] > col:
+            self.write_unwrapped([ScreenChar(' ', fg_color, bg_color, text_style)])
 
     def finish_wrapping(self):
         env = self.env
         win = env.current_window
         text = self.wrapBuf
-        self.wrapBuf = ''
+        self.wrapBuf = []
+        def find_char_or_return_len(cs, c):
+            for i in range(len(cs)):
+                if cs[i].char == c:
+                    return i
+            return len(cs)
+        def collapse_spaces_if_new_line(cs):
+            if env.cursor[win][1] == 0:
+                while len(cs) > 0 and cs[0].char == ' ':
+                    cs = cs[1:]
+            return cs
         while text:
-            if text[0] == '\n':
-                self.new_line()
+            if text[0].char == '\n':
+                self.new_line_via_spaces(text[0].fg_color, text[0].bg_color, text[0].text_style)
                 text = text[1:]
-            elif text[0] == ' ':
-                space_len = 0
-                while text[space_len] == ' ':
-                    space_len += 1
-                    if space_len == len(text):
-                        break
-                spaces = text[:space_len]
-                text = text[space_len:]
-                self.write_unwrapped(spaces)
-                # NOTE: should I add another "fix spaces at beginning of lines"
-                # check here (see at the end of the else below)
+            elif text[0].char == ' ':
+                self.write_unwrapped([text[0]])
+                text = text[1:]
+                text = collapse_spaces_if_new_line(text)
             else:
-                first_space = text.find(' ')
-                if first_space == -1:
-                    first_space = len(text)
-                first_nl = text.find('\n')
-                if first_nl == -1:
-                    first_nl = len(text)
+                first_space = find_char_or_return_len(text, ' ')
+                first_nl = find_char_or_return_len(text, '\n')
                 word = text[:min(first_space, first_nl)]
                 text = text[min(first_space, first_nl):]
-                w = env.hdr.screen_width_units
-                if len(word) > w:
+                if len(word) > env.hdr.screen_width_units:
                     self.write_unwrapped(word)
-                elif env.cursor[win][1] + len(word) > w:
-                    self.new_line()
+                elif env.cursor[win][1] + len(word) > env.hdr.screen_width_units:
+                    self.new_line_via_spaces(text[0].fg_color, text[0].bg_color, text[0].text_style)
                     self.write_unwrapped(word)
                 else:
                     self.write_unwrapped(word)
-                # avoid pushing spaces to beginning of line
-                if env.cursor[win][1] == 0:
-                    while len(text) > 0 and text[0] == ' ':
-                        text = text[1:]
+                text = collapse_spaces_if_new_line(text)
 
-    def write_unwrapped(self, text):
+    def write_unwrapped(self, text_as_screenchars):
         env = self.env
         win = env.current_window
         w = env.hdr.screen_width_units
-        for c in text:
-            if c == '\n':
+        for c in text_as_screenchars:
+            if c.char == '\n':
                 self.new_line()
             else:
                 y, x = env.cursor[win]
-                self.textBuf[y][x] = ScreenChar(c, env.fg_color, env.bg_color, env.text_style)
+                self.textBuf[y][x] = c
                 env.cursor[win] = y, x+1
-                if x+1 >= w:
+                if x+1 == w:
                     self.new_line()
 
     def flush(self):
@@ -161,9 +159,9 @@ class Screen(object):
         for i in xrange(len(buf)):
             for j in xrange(len(buf[i])):
                 c = buf[i][j]
-                write_char(c.char, c.fgCol, c.bgCol, c.style)
+                write_char(c.char, c.fg_color, c.bg_color, c.text_style)
             if i < len(buf) - 1:
-                write_char('\n', c.fgCol, c.bgCol, c.style)
+                write_char('\n', c.fg_color, c.bg_color, c.text_style)
             else:
                 term.fill_to_eol_with_bg_color()
 
@@ -180,8 +178,8 @@ class Screen(object):
         text = raw_input()[:120] # 120 char limit seen on gargoyle
         term.hide_cursor()
         for t in text:
-            self.write_unwrapped(t)
-        self.new_line()
+            self.write_unwrapped([ScreenChar(t, env.fg_color, env.bg_color, env.text_style)])
+        self.new_line_via_spaces(env.fg_color, env.bg_color, env.text_style)
         term.home_cursor()
         return text
 
