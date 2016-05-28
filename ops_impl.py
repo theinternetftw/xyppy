@@ -1435,12 +1435,13 @@ def set_text_style(env, opinfo):
         env.text_style = 'normal'
     if style & 1:
         env.text_style = 'reverse_video'
-    if style & 2:
-        env.text_style = 'bold'
-    if style & 4:
-        env.text_style = 'italic'
-    if style & 8:
-        env.text_style = 'fixed_pitch'
+    # TODO: (?) these text styles? multiple text styles?
+    # if style & 2:
+    #     env.text_style = 'bold'
+    # if style & 4:
+    #     env.text_style = 'italic'
+    # if style & 8:
+    #     env.text_style = 'fixed_pitch'
     if DBG:
         warn('op: set_text_style')
         warn('    style:', style)
