@@ -71,9 +71,9 @@ def get_obj_desc_addr(env, obj):
         desc_addr = obj_addr+12
     return env.u16(desc_addr)+1 # past len byte
 
-A0 = 'abcdefghijklmnopqrstuvwxyz'
-A1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-A2 = ' \n0123456789.,!?_#\'"/\-:()'
+Default_A0 = 'abcdefghijklmnopqrstuvwxyz'
+Default_A1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+Default_A2 = ' \n0123456789.,!?_#\'"/\-:()'
 
 #needs_compat_pass (i think only for v1/v2)
 def unpack_string(env, packed_text, warn_unknown_char=True):
@@ -86,6 +86,15 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
 
     #check the differences between v1/v2 and v3 here
     #going w/ v3 compat only atm
+    if env.hdr.version >= 5 and env.hdr.alpha_tab_base:
+        base = env.hdr.alpha_tab_base
+        A0 = ''.join(map(chr, list(env.mem[base+0*26:base+1*26])))
+        A1 = ''.join(map(chr, list(env.mem[base+1*26:base+2*26])))
+        A2 = ''.join(map(chr, list(env.mem[base+2*26:base+3*26])))
+    else:
+        A0 = Default_A0
+        A1 = Default_A1
+        A2 = Default_A2
 
     text = []
     currentAlphabet = A0
@@ -115,9 +124,11 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
             currentAlphabet = A1
         elif char == 5:
             currentAlphabet = A2
-        elif char == 6 and currentAlphabet == A2:
+        elif char == 6 and currentAlphabet == A2: # override any custom alpha with escape seq start
             mode = '10BIT_HIGH'
             currentAlphabet = A0
+        elif char == 7 and currentAlphabet == A2: # override any custom alpha with newline
+            text.append('\n')
         elif char in [1,2,3]:
             abbrevShift = char
             currentAlphabet = A0
