@@ -1058,6 +1058,8 @@ def pull(env, opinfo):
         warn('    dest', get_var_name(var))
 
 def buffer_mode(env, opinfo):
+    env.screen.finish_wrapping()
+
     flag = opinfo.operands[0]
     env.use_buffered_output = (flag == 1)
 
@@ -1243,6 +1245,8 @@ def nop(env, opinfo):
         warn('op: nop')
 
 def erase_window(env, opinfo):
+    env.screen.finish_wrapping()
+
     window = to_signed_word(opinfo.operands[0])
 
     if window in [0, -1]:
@@ -1259,6 +1263,8 @@ def erase_window(env, opinfo):
         warn('op: erase_window')
 
 def split_window(env, opinfo):
+    env.screen.finish_wrapping()
+
     env.top_window_height = opinfo.operands[0]
     if env.cursor[0][0] < env.top_window_height:
         env.cursor[0] = env.top_window_height, env.cursor[0][1]
@@ -1268,6 +1274,8 @@ def split_window(env, opinfo):
         warn('    height', env.top_window_height)
 
 def set_window(env, opinfo):
+    env.screen.finish_wrapping()
+
     env.current_window = opinfo.operands[0]
     if env.current_window == 1:
         env.cursor[1] = (0,0)
@@ -1327,12 +1335,15 @@ def save(env, opinfo):
         warn('op: save (z > 3 version)')
 
 def set_cursor(env, opinfo):
+    env.screen.finish_wrapping()
+
     row = to_signed_word(opinfo.operands[0])
     col = to_signed_word(opinfo.operands[1])
     if row < 1: # why do we not error out here?
         row = 1
     if col < 1: # same question
         col = 1
+
     # ignores win 0 (S 8.7.2.3)
     if env.current_window == 1:
         if col > env.hdr.screen_width_units:

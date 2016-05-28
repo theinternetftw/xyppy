@@ -26,6 +26,7 @@ class Screen(object):
     def __init__(self, env):
         self.env = env
         self.init_bufs()
+        self.wrapBuf = ''
 
     def init_bufs(self):
         self.textBuf = self.make_screen_buf()
@@ -51,7 +52,7 @@ class Screen(object):
             self.scroll()
 
     def write(self, text):
-        if self.env.use_buffered_output:
+        if self.env.current_window == 0 and self.env.use_buffered_output:
             self.write_wrapped(text)
         else:
             self.write_unwrapped(text)
@@ -91,19 +92,14 @@ class Screen(object):
             if row+1 < env.top_window_height:
                 env.cursor[win] = row+1, 0
 
-    # TODO: this isn't quite right. need to look at old line, and wrap
-    # correctly even when its sent in character by character (gargoyle
-    # does this). Another solution could be to just save things in a
-    # buffer and wrap it right before flush, but figuring out how to
-    # handle cursor moves, etc would be more complicated, would probably
-    # have to think about exactly when to flush a lot more.
-    # Example where you can see if you're doing it right is the score
-    # printout when you try and immediately quit Trinity ("TOURIST"
-    # should word-wrap correctly).
     def write_wrapped(self, text):
+        self.wrapBuf += text
+
+    def finish_wrapping(self):
         env = self.env
         win = env.current_window
-        w = env.hdr.screen_width_units
+        text = self.wrapBuf
+        self.wrapBuf = ''
         while text:
             if text[0] == '\n':
                 self.new_line()
@@ -128,6 +124,7 @@ class Screen(object):
                     first_nl = len(text)
                 word = text[:min(first_space, first_nl)]
                 text = text[min(first_space, first_nl):]
+                w = env.hdr.screen_width_units
                 if len(word) > w:
                     self.write_unwrapped(word)
                 elif env.cursor[win][1] + len(word) > w:
@@ -156,6 +153,7 @@ class Screen(object):
                     self.new_line()
 
     def flush(self):
+        self.finish_wrapping()
         term.home_cursor()
         buf = self.textBuf
         for i in xrange(len(buf)):
@@ -225,6 +223,8 @@ def write(env, text):
         env.output_buffer[3] += text
         return
 
+    # TODO: (if I so choose): stream 2 (transcript stream)
+    # should also be able to wordwrap if buffer is on
     for stream in env.selected_ostreams:
         if stream == 1:
             env.screen.write(text)
