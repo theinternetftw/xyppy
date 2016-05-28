@@ -1,7 +1,7 @@
 # ops_impl.py (as in this file implements the opcodes)
 #
 # the goal here is to have no z-machine version control flow in here,
-# i.e. no 'if *.z5 then X else Y'. All that should be in ops_compat.py
+# i.e. no 'if *.z5 then X else Y'. All that should be in ops_impl_compat.py
 
 import random
 
@@ -1298,7 +1298,11 @@ def restore_z3(env, opinfo):
 def restore(env, opinfo):
     # TODO handle optional operands
     if len(opinfo.operands) > 0:
-        err('restore: found operands (not yet impld): '+str(opinfo.operands))
+        if DBG:
+            warn('restore: found operands (not yet impld): '+str(opinfo.operands))
+        set_var(env, opinfo.store_var, 0)
+        return
+
     filename = raw_input('input save filename: ')
     loaded = quetzal.load_to_env(env, filename)
     if loaded:
@@ -1325,7 +1329,11 @@ def save_z3(env, opinfo):
 def save(env, opinfo):
     # TODO handle optional operands
     if len(opinfo.operands) > 0:
-        err('restore: found operands (not yet impld): '+str(opinfo.operands))
+        if DBG:
+            warn('restore: found operands (not yet impld): '+str(opinfo.operands))
+        set_var(env, opinfo.store_var, 0)
+        return
+
     filename = raw_input('input save filename: ')
     quetzal.write(env, filename)
     # currently assuming save was successful
