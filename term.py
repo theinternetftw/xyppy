@@ -3,7 +3,7 @@
 import sys, atexit, ctypes
 
 def init(env):
-    if isWindows():
+    if is_windows():
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.SetConsoleMode(stdout_handle, 7)
     else: #Unix
@@ -16,7 +16,7 @@ def init(env):
     atexit.register(show_cursor)
 
 def reset_color():
-    if isWindows():
+    if is_windows():
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.SetConsoleTextAttribute(stdout_handle, 7)
     else:
@@ -45,7 +45,7 @@ class CONSOLE_SCREEN_BUFFER_INFO(ctypes.Structure):
 def scroll_down():
     # need to reset color to avoid adding bg at bottom
     sys.stdout.write('\x1b[0m')
-    if isWindows():
+    if is_windows():
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -85,8 +85,12 @@ def set_color(fg_col, bg_col):
     color = str(bg_col + 38)
     sys.stdout.write('\x1b['+color+'m')
 
+# TODO: any other encodings to check for?
+def supports_unicode():
+    return sys.stdout.encoding in ['UTF-8', 'UTF-16', 'UTF-32']
+
 is_windows_cached = None
-def isWindows():
+def is_windows():
     global is_windows_cached
     if is_windows_cached == None:
         try:
@@ -97,7 +101,7 @@ def isWindows():
     return is_windows_cached
 
 def getch():
-    if isWindows():
+    if is_windows():
         import msvcrt
         return msvcrt.getch()
     else: #Unix

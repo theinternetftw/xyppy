@@ -571,7 +571,7 @@ def print_obj(env, opinfo):
         warn('    obj', obj, '(', get_obj_str(env, obj), ')')
 
 def print_char(env, opinfo):
-    char = zscii_to_ascii([opinfo.operands[0]])
+    char = zscii_to_ascii(env, [opinfo.operands[0]])
     write(env, char)
 
     if DBG:
@@ -1229,7 +1229,7 @@ def print_table(env, opinfo):
         line = []
         for j in xrange(width):
             line.append(env.u8(tab_addr + i*(width+skip) + j))
-        write(env, zscii_to_ascii(line))
+        write(env, zscii_to_ascii(env, line))
         if i < height - 1:
             write(env, '\n')
 
@@ -1365,10 +1365,11 @@ def set_colour(env, opinfo):
         warn('op: set_colour')
 
 def print_unicode(env, opinfo):
-    if opinfo.operands[0] < 128:
-        write(env, chr(opinfo.operands[0]))
+    ucode = opinfo.operands[0]
+    if ucode < 128:
+        write(env, chr(ucode))
     else:
-        warn('\n\nattempted to print exotic unicode char: ',opinfo.operands[0],'\n\n')
+        write(env, translate_unicode(ucode))
 
     if DBG:
         warn('op: print_unicode')

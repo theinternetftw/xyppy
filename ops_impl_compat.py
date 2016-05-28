@@ -1,4 +1,5 @@
 from debug import warn, err
+import term
 
 def get_cursor_loc_after_erase(env, cleared_window):
     if env.hdr.version >= 5:
@@ -96,6 +97,14 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
         A1 = Default_A1
         A2 = Default_A2
 
+    if env.hdr.version in [1,2]:
+        # TODO: actually use this, also see 3.7.1 for the other V1,V2 niggle
+        # aside from string unpacking
+        shiftTable = {
+                2: {A0:A1, A1:A2, A2:A0},
+                3: {A0:A2, A1:A0, A2:A1},
+        }
+
     text = []
     currentAlphabet = A0
     abbrevShift = 0
@@ -116,7 +125,7 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
         elif mode == '10BIT_LOW':
             mode = 'NONE'
             current_10bit |= char
-            text += zscii_to_ascii([current_10bit], warn_unknown_char)
+            text += zscii_to_ascii(env, [current_10bit], warn_unknown_char)
         elif char == 0:
             text.append(' ')
             currentAlphabet = A0
@@ -129,6 +138,7 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
             currentAlphabet = A0
         elif char == 7 and currentAlphabet == A2: # override any custom alpha with newline
             text.append('\n')
+            currentAlphabet = A0
         elif char in [1,2,3]:
             abbrevShift = char
             currentAlphabet = A0
@@ -161,21 +171,96 @@ def unpack_addr_print_paddr(env, addr):
     else:
         return unpack_addr(addr, version)
 
+# non-standardized second table, just for zmach
+# TODO: add backwards single/double quotes, etc.
+extra_unicode_fallback_table = {
+    0x2014: '-'
+}
+
+def to_unicode_fallback(c):
+    if c in default_unicode_fallback_table:
+        return default_unicode_fallback_table[c]
+    if c in extra_unicode_fallback_table:
+        return default_unicode_fallback_table[c]
+    return '?'
+
+def _make_to_unicode():
+    try:
+        # python 3 check
+        chr(8212)
+        return chr
+    except ValueError:
+        return unichr
+to_unicode = _make_to_unicode()
+
+def _make_translate_unicode():
+    if term.supports_unicode():
+        return to_unicode
+    else:
+        return to_unicode_fallback
+translate_unicode = _make_translate_unicode()
+
+default_unicode_table = {}
+default_unicode_fallback_table = {}
+
+def build_default_unicode_tables(*triples):
+    for triple in triples:
+        znum, unum, fallback = triple
+        default_unicode_table[znum] = unum
+        default_unicode_fallback_table[unum] = fallback
+
+build_default_unicode_tables(
+    (155, 0xe4, "ae"), (156, 0xf6, "oe"), (157, 0xfc, "ue"),
+    (158, 0xc4, "Ae"), (159, 0xd6, "Oe"), (160, 0xdc, "Ue"),
+    (161, 0xdf, "ss"), (162, 0xbb, ">>"), (163, 0xab, "<<"),
+    (164, 0xeb, "e"), (165, 0xef, "i"), (166, 0xff, "y"),
+    (167, 0xcb, "E"), (168, 0xcf, "I"),
+    (169, 0xe1, "a"), (170, 0xe9, "e"), (171, 0xed, "i"), (172, 0xf3, "o"), (173, 0xfa, "u"), (174, 0xfd, "y"),
+    (175, 0xc1, "A"), (176, 0xc9, "E"), (177, 0xcd, "I"), (178, 0xd3, "O"), (179, 0xda, "U"), (180, 0xdd, "Y"),
+    (181, 0xe0, "a"), (182, 0xe8, "e"), (183, 0xec, "i"), (184, 0xf2, "o"), (185, 0xf9, "u"),
+    (186, 0xc0, "A"), (187, 0xc8, "E"), (188, 0xcc, "I"), (189, 0xd2, "O"), (190, 0xd9, "U"),
+    (191, 0xe2, "a"), (192, 0xea, "e"), (193, 0xee, "i"), (194, 0xf4, "o"), (195, 0xfb, "u"),
+    (196, 0xc2, "A"), (197, 0xca, "E"), (198, 0xce, "I"), (199, 0xd4, "O"), (200, 0xdb, "U"),
+    (201, 0xe5, "a"), (202, 0xc5, "A"), (203, 0xf8, "o"), (204, 0xd8, "O"),
+    (205, 0xe3, "a"), (206, 0xf1, "n"), (207, 0xf5, "o"),
+    (208, 0xc3, "A"), (209, 0xd1, "N"), (210, 0xd5, "O"),
+    (211, 0xe6, "ae"), (212, 0xc6, "AE"), (213, 0xe7, "c"), (214, 0xc7, "C"),
+    (215, 0xfe, "th"), (216, 0xf0, "th"), (217, 0xde, "Th"), (218, 0xd0, "Th"),
+    (219, 0xa3, "L"),
+    (220, 0x153, "oe"), (221, 0x152, "OE"),
+    (222, 0xa1, "!"), (223, 0xbf, "?")
+)
+
 #std: 3.8
 #needs_compat_pass
-def zscii_to_ascii(clist, warn_unknown_char=True):
-    result = ''
+def zscii_to_ascii(env, clist, warn_unknown_char=True):
+    result = []
     for c in clist:
         if c == 0:
-            # 0 == no effect in zscii
+            # 0 == no effect in zscii (S 3.8.2.1)
             continue
         if c == ord('\r'):
-            result += '\n'
-        elif c > 31 and c < 127:
-            result += chr(c)
-        elif warn_unknown_char:
-           warn('this zscii char not yet implemented: '+str(c))
-    return result
+            result.append('\n')
+        elif c >= 32 and c <= 126:
+            result.append(chr(c))
+        elif c >= 155 and c <= 251:
+            if env.hdr.unicode_tab_base:
+                unitable_len = env.mem[env.hdr.unicode_tab_base]
+                if (c-155) < len(unitable_len):
+                    result.append(translate_unicode(env.u16(env.hdr.unicode_tab_base+(c-155))))
+                else:
+                    # err('sent unitable zscii that doesn\'t fit in custom table!', c-155, 'vs', unitable_len)
+                    result.append('?')
+            else:
+                if c in default_unicode_table:
+                    result.append(translate_unicode(default_unicode_table[c]))
+                else:
+                    # err('sent unitable zscii that\'s not in default table', c)
+                    result.append('?')
+        elif (c >= 0 and c <= 12) or (c >= 14 and c <= 31) or (c >= 127 and c <= 154) or (c >= 252):
+            # err('sent zscii to print that\'s not defined for output!', c)
+            pass
+    return ''.join(result)
 
 #std: 3.8
 #needs_compat_pass
@@ -190,10 +275,14 @@ def ascii_to_zscii(string):
         # the moment, I make this compromise.
         elif c == '\t':
             result.append(ord(' '))
-        elif c in ('\r','\b') or (ord(c) > 31 and ord(c) < 127):
+        elif c in ('\r','\b','\x1b') or (ord(c) > 31 and ord(c) < 127):
             result.append(ord(c))
+            # TODO (?): unicode for input (translate codes to zscii using the unicode table(s))
+            # TODO: 3.8.4 (arrow keys, function keys, keypad
         else:
            warn('this ascii char not yet implemented in zscii: '+str(c)+' / '+str(ord(c)))
+           warn('HIT ENTER TO CONTINUE')
+           raw_input()
            result.append(ord('?'))
     return result
 

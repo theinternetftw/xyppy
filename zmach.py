@@ -72,6 +72,12 @@ class Header(object):
         self.alpha_tab_base = env.u16(0x34)
         self.hdr_ext_tab_base = env.u16(0x36)
 
+        self.hdr_ext_tab_length = 0
+        if self.hdr_ext_tab_base:
+            self.hdr_ext_tab_length = env.u16(self.hdr_ext_tab_base)
+            if self.hdr_ext_tab_length >= 3:
+                self.unicode_tab_base = env.u16(self.hdr_ext_tab_base+3)
+
     flags1 = u8_prop(0x1)
     flags2 = u16_prop(0x10)
 
@@ -193,10 +199,12 @@ def set_standard_flags(hdr):
     hdr.font_width_units = 1
     hdr.font_height_units = 1
 
-    # override whatever's in the header if its bad/empty
-    if hdr.default_fg_color < 2 and hdr.default_bg_color < 2:
-        hdr.default_fg_color = 9
-        hdr.default_bg_color = 2
+    hdr.default_fg_color = 9
+    hdr.default_bg_color = 2
+
+    # clear flags 3 (S 11.1.7.4.1)
+    if hdr.hdr_ext_tab_length >= 4:
+        env.mem[self.hdr_ext_tab_base+4] = 0
 
 class Env:
     def __init__(self, mem):
