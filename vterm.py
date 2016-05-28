@@ -76,7 +76,7 @@ class Screen(object):
     def new_line(self):
         env, win = self.env, self.env.current_window
         row, col = env.cursor[win]
-        while col < env.hdr.screen_width_units-1:
+        while col < env.hdr.screen_width_units:
             # S 8.7.3.1 (reverse video rules)
             style = 'normal' if env.text_style == 'reverse_video' else env.text_style
             self.textBuf[row][col] = ScreenChar(' ', env.fg_color, env.bg_color, style)
@@ -147,9 +147,8 @@ class Screen(object):
             else:
                 y, x = env.cursor[win]
                 self.textBuf[y][x] = ScreenChar(c, env.fg_color, env.bg_color, env.text_style)
-                if x+1 < w:
-                    env.cursor[win] = y, x+1
-                else:
+                env.cursor[win] = y, x+1
+                if x+1 >= w:
                     self.new_line()
 
     def flush(self):
