@@ -165,9 +165,10 @@ def get_operand_sizes(szbyte):
 def set_standard_flags(hdr):
     if hdr.version < 4:
         # no variable-spaced font (bit 6 = 0)
-        # no screen splitting available (bit 5 = 0)
         # no status line (bit 4 = 0)
-        hdr.flags1 &= 0b10001111
+        hdr.flags1 &= 0b10101111
+        # screen splitting available (bit 5 = 1)
+        hdr.flags1 |= 0b00100000
     else:
         # no timed keyboard events available (bit 7 = 0)
         # no sound effects available (bit 5 = 0)
