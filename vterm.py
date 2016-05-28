@@ -78,8 +78,11 @@ class Screen(object):
         row, col = env.cursor[win]
         while col < env.hdr.screen_width_units:
             # S 8.7.3.1 (reverse video rules)
-            style = 'normal' if env.text_style == 'reverse_video' else env.text_style
-            self.textBuf[row][col] = ScreenChar(' ', env.fg_color, env.bg_color, style)
+            # FIXME: apparently the above isn't true, because it breaks
+            # several games. however, 1 game is slightly *more* broken by
+            # just passing the current style so... *shrug*
+            # style = 'normal' if env.text_style == 'reverse_video' else env.text_style
+            self.textBuf[row][col] = ScreenChar(' ', env.fg_color, env.bg_color, env.text_style)
             env.cursor[win] = row, col
             col += 1
         if win == 0:
