@@ -53,6 +53,14 @@ class Screen(object):
 
     def write(self, text):
         env = self.env
+
+        # the spec suggests pushing the bottom window cursor down.
+        # to allow for more trinity box tricks (admittedly only seen so
+        # far in baby_tree.zblorb), we'll do that only when it's
+        # being written to.
+        if env.current_window == 0 and env.cursor[0][0] < env.top_window_height:
+            env.cursor[0] = env.top_window_height, env.cursor[0][1]
+
         as_screenchars = map(lambda c: ScreenChar(c, env.fg_color, env.bg_color, env.text_style), text)
         if env.current_window == 0 and env.use_buffered_output:
             self.write_wrapped(as_screenchars)

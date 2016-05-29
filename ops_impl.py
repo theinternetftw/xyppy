@@ -1289,8 +1289,10 @@ def split_window(env, opinfo):
         env.screen.scroll_top_line_only()
 
     env.top_window_height = opinfo.operands[0]
-    if env.cursor[0][0] < env.top_window_height:
-        env.cursor[0] = env.top_window_height, env.cursor[0][1]
+
+    # the spec suggests pushing the bottom window cursor down.
+    # to allow for more trinity-style tricks, we'll do that only
+    # when it's being written to (see env.screen.write).
 
     if DBG:
         warn('op: split_window')
