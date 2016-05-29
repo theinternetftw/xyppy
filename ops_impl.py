@@ -200,7 +200,7 @@ def jump(env, opinfo):
 def loadw(env, opinfo):
     array_addr = opinfo.operands[0]
     word_index = to_signed_word(opinfo.operands[1])
-    word_loc = array_addr + 2*word_index
+    word_loc = 0xffff & (array_addr + 2*word_index)
 
     set_var(env, opinfo.store_var, env.u16(word_loc))
 
@@ -214,7 +214,7 @@ def loadw(env, opinfo):
 def loadb(env, opinfo):
     array_addr = opinfo.operands[0]
     byte_index = to_signed_word(opinfo.operands[1])
-    byte_loc = array_addr + byte_index
+    byte_loc = 0xffff & (array_addr + byte_index)
 
     set_var(env, opinfo.store_var, env.u8(byte_loc)) 
     if DBG:
@@ -228,8 +228,9 @@ def storeb(env, opinfo):
     array_addr = opinfo.operands[0]
     byte_index = to_signed_word(opinfo.operands[1])
     val = opinfo.operands[2] & 0xff
+    mem_loc = 0xffff & (array_addr + byte_index)
 
-    env.write8(array_addr+byte_index, val)
+    env.write8(mem_loc, val)
 
     if DBG:
         warn('op: storeb')
@@ -242,7 +243,7 @@ def storew(env, opinfo):
     word_index = to_signed_word(opinfo.operands[1])
     val = opinfo.operands[2]
 
-    word_loc = array_addr + 2*word_index
+    word_loc = 0xffff & (array_addr + 2*word_index)
     env.write16(word_loc, val)
 
     if DBG:
@@ -462,7 +463,10 @@ def handle_return(env, return_val):
     if DBG:
         warn('helper: handle_return')
         warn('    return_val', return_val)
-        warn('    return_val_loc', frame.return_val_loc)
+        if frame.return_val_loc:
+            warn('    return_val_loc', get_var_name(frame.return_val_loc))
+        else:
+            warn('    return_val_loc None')
         warn('    return_addr', hex(frame.return_addr))
 
 def ret(env, opinfo):
@@ -1214,6 +1218,8 @@ def scan_table(env, opinfo):
 
 # TODO: make sure this actually works
 def print_table(env, opinfo):
+    env.screen.finish_wrapping()
+
     tab_addr = opinfo.operands[0]
     width = opinfo.operands[1]
 
@@ -1227,6 +1233,7 @@ def print_table(env, opinfo):
     else:
         skip = 0
 
+    original_col = env.cursor[env.current_window][1]
     for i in xrange(height):
         line = []
         for j in xrange(width):
@@ -1234,6 +1241,8 @@ def print_table(env, opinfo):
         write(env, zscii_to_ascii(env, line))
         if i < height - 1:
             write(env, '\n')
+            env.screen.finish_wrapping()
+            env.cursor[env.current_window] = env.cursor[env.current_window][0], original_col
 
     if DBG:
         warn('op: print_table')
