@@ -199,7 +199,33 @@ class Screen(object):
         if line_empty(self.textBuf[row][col:]):
             term.fill_to_eol_with_bg_color()
         term.show_cursor()
-        text = raw_input()[:120] # 120 char limit seen on gargoyle
+        text = ''
+        edit_col = col
+        c = term.getch()
+        while c != '\n':
+            if c == '\b' or ord(c) == 127:
+                if edit_col > col:
+                    # tab normally not supported on z machines, but it being
+                    # missing feels weird and restrictive...
+                    # (even if i'm just going to replace the char later...)
+                    if text[-1] == '\t':
+                        term.cursor_left(4)
+                    else:
+                        term.cursor_left()
+                        term.putc(' ')
+                        term.cursor_left()
+                    text = text[:-1]
+                    edit_col -= 1
+            else:
+                if is_valid_inline_char(c):
+                    text += c
+                    if c == '\t':
+                        term.putc('    ')
+                    else:
+                        term.putc(c)
+                    edit_col += 1
+            c = term.getch()
+        text = text[:120] # 120 char limit seen on gargoyle
         term.hide_cursor()
         for t in text:
             self.write_unwrapped([ScreenChar(t, env.fg_color, env.bg_color, env.text_style)])
@@ -261,3 +287,6 @@ def flush(env):
     if 3 not in env.selected_ostreams:
         if 1 in env.selected_ostreams:
             env.screen.flush()
+
+def is_valid_inline_char(c):
+    return c in ['\t', '\r', '\b'] or (ord(c) > 31 and ord(c) < 127)
