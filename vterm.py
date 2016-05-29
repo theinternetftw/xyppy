@@ -59,6 +59,18 @@ class Screen(object):
         else:
             self.write_unwrapped(as_screenchars)
 
+    # for when it's useful to make a hole in the scroll text
+    # e.g. moving already written text around to make room for
+    # what's about to become a new split window
+    def scroll_top_line_only(self):
+        env = self.env
+        top_win = self.textBuf[:env.top_window_height]
+        term.home_cursor()
+        self.overwrite_line(self.textBuf[env.top_window_height])
+        term.scroll_down()
+        self.textBuf = top_win + [self.make_screen_line()] + self.textBuf[env.top_window_height+1:]
+        # self.flush() # TODO: fun but slow, make a config option
+
     def scroll(self, lines=1):
         env = self.env
         for i in range(lines):
@@ -67,7 +79,7 @@ class Screen(object):
             self.overwrite_line(self.textBuf[env.top_window_height])
             term.scroll_down()
             self.textBuf = top_win + self.textBuf[env.top_window_height+1:] + [self.make_screen_line()]
-            #self.flush() # TODO: fun but slow, make a config option
+            # self.flush() # TODO: fun but slow, make a config option
 
     def overwrite_line(self, new_line):
         term.clear_line()
@@ -111,9 +123,13 @@ class Screen(object):
                 if cs[i].char == c:
                     return i
             return len(cs)
-        def collapse_spaces_if_new_line(cs):
+        def collapse_on_newline(cs):
             if env.cursor[win][1] == 0:
+                # collapse all spaces
                 while len(cs) > 0 and cs[0].char == ' ':
+                    cs = cs[1:]
+                # collapse the first newline (as we just generated one)
+                if len(cs) > 0 and cs[0].char == '\n':
                     cs = cs[1:]
             return cs
         while text:
@@ -123,7 +139,7 @@ class Screen(object):
             elif text[0].char == ' ':
                 self.write_unwrapped([text[0]])
                 text = text[1:]
-                text = collapse_spaces_if_new_line(text)
+                text = collapse_on_newline(text)
             else:
                 first_space = find_char_or_return_len(text, ' ')
                 first_nl = find_char_or_return_len(text, '\n')
@@ -132,11 +148,11 @@ class Screen(object):
                 if len(word) > env.hdr.screen_width_units:
                     self.write_unwrapped(word)
                 elif env.cursor[win][1] + len(word) > env.hdr.screen_width_units:
-                    self.new_line_via_spaces(text[0].fg_color, text[0].bg_color, text[0].text_style)
+                    self.new_line_via_spaces(word[0].fg_color, word[0].bg_color, word[0].text_style)
                     self.write_unwrapped(word)
                 else:
                     self.write_unwrapped(word)
-                text = collapse_spaces_if_new_line(text)
+                text = collapse_on_newline(text)
 
     def write_unwrapped(self, text_as_screenchars):
         env = self.env

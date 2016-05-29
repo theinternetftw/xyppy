@@ -1278,6 +1278,16 @@ def erase_window(env, opinfo):
 def split_window(env, opinfo):
     env.screen.finish_wrapping()
 
+    old_height = env.top_window_height
+
+    # an unfortunate hack, but makes Inform games look better,
+    # as they intentionally don't fill up the entire status bar (so
+    # this is me trying to keep the Trinity trick and those bars both
+    # looking good). only doing it on 0 to 1-bar transitions,
+    # because those sound like status bars being made, right?
+    if opinfo.operands[0] == 1 and env.top_window_height == 0:
+        env.screen.scroll_top_line_only()
+
     env.top_window_height = opinfo.operands[0]
     if env.cursor[0][0] < env.top_window_height:
         env.cursor[0] = env.top_window_height, env.cursor[0][1]
@@ -1369,10 +1379,10 @@ def set_cursor(env, opinfo):
     if env.current_window == 1:
         if col > env.hdr.screen_width_units:
             err('set_cursor: set outside screen width')
-        # NOTE: this is now a screen check, not a window
-        # check, as I found a game that goes outside the window
         if row > env.hdr.screen_height_units:
             err('set_cursor: set outside screen height')
+        # see 3rd to last note at bottom of section 8
+        env.top_window_height = max(env.top_window_height, row-1)
         # fix that row,col have a 1,1 origin
         env.cursor[env.current_window] = row-1, col-1
 
