@@ -43,7 +43,7 @@ class Header(object):
     # use *_prop for dyn values
     # and just set others from mem
     # in __init__
-        
+
     def __init__(self, env):
         self.env = env
 
@@ -491,8 +491,8 @@ DBG = 0
 def main():
     if len(sys.argv) != 2:
         print('usage examples:')
-        print('    python zmach.py STORY_FILE.z5')
-        print('    python zmach.py http://example.com/STORY_FILE.z5')
+        print('    python xyppy.py STORY_FILE.z5')
+        print('    python xyppy.py http://example.com/STORY_FILE.z5')
         sys.exit()
 
     uri = sys.argv[1]
@@ -519,7 +519,7 @@ def main():
             step(env)
     except KeyboardInterrupt:
         print()
-        print('zmach.py: exiting as requested.')
+        print('xyppy.py: exiting as requested.')
         print()
 
 

@@ -5,7 +5,7 @@
 
 import random
 
-from zmach import to_signed_word, DBG
+from xyppy import to_signed_word, DBG
 from debug import warn, err
 from ops_impl_compat import *
 

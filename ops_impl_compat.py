@@ -173,7 +173,7 @@ def unpack_addr_print_paddr(env, addr):
     else:
         return unpack_addr(addr, version)
 
-# non-standardized second table, just for zmach
+# non-standardized second table, just for xyppy
 # TODO: add backwards single/double quotes, etc.
 extra_unicode_fallback_table = {
     0x2014: '-'
