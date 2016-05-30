@@ -1,4 +1,5 @@
 import term
+import random
 
 # warning: hack filled nonsense follows, since I'm
 # converting a system that expects full control over
@@ -25,21 +26,35 @@ class ScreenChar(object):
 def sc_line_to_string(line):
     return repr(''.join(map(lambda x: x.char, line)))
 
+# so we can hash it
+class ScreenLine(object):
+    def __init__(self, line):
+        self.line = line
+        self.inithash = random.randint(0, 0xffffffff)
+    def __getitem__(self, idx):
+        return self.line[idx]
+    def __setitem__(self, idx, val):
+        self.line[idx] = val
+    def __len__(self):
+        return len(self.line)
+    def __iter__(self):
+        return self.line.__iter__()
+    def __hash__(self):
+        return self.inithash
+
 class Screen(object):
     def __init__(self, env):
         self.env = env
-        self.init_bufs()
-        self.wrapBuf = []
-
-    def init_bufs(self):
         self.textBuf = self.make_screen_buf()
+        self.seenBuf = {line: False for line in self.textBuf}
+        self.wrapBuf = []
 
     def make_screen_buf(self):
         return [self.make_screen_line() for i in xrange(self.env.hdr.screen_height_units)]
 
     def make_screen_line(self):
         c, fg, bg, style = ' ', self.env.fg_color, self.env.bg_color, 'normal'
-        return [ScreenChar(c, fg, bg, style) for i in xrange(self.env.hdr.screen_width_units)]
+        return ScreenLine([ScreenChar(c, fg, bg, style) for i in xrange(self.env.hdr.screen_width_units)])
 
     def blank_top_win(self):
         env = self.env
@@ -47,6 +62,7 @@ class Screen(object):
         for i in xrange(env.top_window_height):
             write_char('\n', env.fg_color, env.bg_color, env.text_style)
             self.textBuf[i] = self.make_screen_line()
+            self.seenBuf[self.textBuf[i]] = False
 
     def blank_bottom_win(self):
         for i in xrange(self.env.top_window_height, self.env.hdr.screen_height_units):
@@ -73,24 +89,54 @@ class Screen(object):
     # what's about to become a new split window
     def scroll_top_line_only(self):
         env = self.env
-        top_win = self.textBuf[:env.top_window_height]
+        old_line = self.textBuf[env.top_window_height]
+
+        if not self.seenBuf[old_line]:
+            self.pause_scroll_for_user_input()
+
         term.home_cursor()
-        self.overwrite_line(self.textBuf[env.top_window_height])
+        self.overwrite_line_with(old_line)
         term.scroll_down()
-        self.textBuf = top_win + [self.make_screen_line()] + self.textBuf[env.top_window_height+1:]
-        # self.flush() # TODO: fun but slow, make a config option
 
-    def scroll(self, lines=1):
+        new_line = self.make_screen_line()
+        self.textBuf[env.top_window_height] = new_line
+        self.seenBuf[new_line] = False
+
+        self.flush() # TODO: fun but slow, make a config option
+
+    def scroll(self, count_lines=True):
         env = self.env
-        for i in range(lines):
-            top_win = self.textBuf[:env.top_window_height]
-            term.home_cursor()
-            self.overwrite_line(self.textBuf[env.top_window_height])
-            term.scroll_down()
-            self.textBuf = top_win + self.textBuf[env.top_window_height+1:] + [self.make_screen_line()]
-            # self.flush() # TODO: fun but slow, make a config option
+        old_line = self.textBuf.pop(env.top_window_height)
 
-    def overwrite_line(self, new_line):
+        if not self.seenBuf[old_line]:
+            self.pause_scroll_for_user_input()
+
+        term.home_cursor()
+        self.overwrite_line_with(old_line)
+        term.scroll_down()
+
+        new_line = self.make_screen_line()
+        self.textBuf.append(new_line)
+        self.seenBuf[new_line] = False
+
+        self.flush() # TODO: fun but slow, make a config option
+
+    def update_seen_lines(self):
+        self.seenBuf = {line: True for line in self.textBuf}
+    def pause_scroll_for_user_input(self):
+        if not buf_empty(self.textBuf):
+            self.flush()
+            term_width = term.get_size()[0]
+            if term_width - self.env.hdr.screen_width_units > 3:
+                term.home_cursor()
+                term.cursor_down(self.env.hdr.screen_height_units - 1)
+                term.cursor_right(self.env.hdr.screen_width_units)
+                write_char(' ', self.env.fg_color, self.env.bg_color, 'normal')
+                write_char('...', self.env.fg_color, self.env.bg_color, 'normal')
+            term.getch()
+        self.update_seen_lines()
+
+    def overwrite_line_with(self, new_line):
         term.clear_line()
         for c in new_line:
             write_char(c.char, c.fg_color, c.bg_color, c.text_style)
@@ -104,6 +150,7 @@ class Screen(object):
                 self.scroll()
                 env.cursor[win] = row, 0
             else:
+                self.flush() # TODO: fun but slow, make a config option
                 env.cursor[win] = row+1, 0
         else:
             if row+1 < env.top_window_height:
@@ -173,6 +220,7 @@ class Screen(object):
             else:
                 y, x = env.cursor[win]
                 self.textBuf[y][x] = c
+                self.seenBuf[y] = False
                 env.cursor[win] = y, x+1
                 if x+1 == w:
                     self.new_line()
@@ -196,6 +244,7 @@ class Screen(object):
         for c in prompt:
             self.write_unwrapped([ScreenChar(c, env.fg_color, env.bg_color, env.text_style)])
         self.flush()
+        self.update_seen_lines()
 
         term.home_cursor()
         row, col = env.cursor[env.current_window]
@@ -209,7 +258,7 @@ class Screen(object):
         text = ''
         edit_col = col
         c = term.getch()
-        while c != '\n':
+        while c != '\n' and c != '\r':
             if c == '\b' or ord(c) == 127:
                 if edit_col > col:
                     # tab normally not supported on z machines, but it being
@@ -250,7 +299,9 @@ class Screen(object):
         term.fill_to_eol_with_bg_color()
 
     def getch(self):
+        self.flush()
         c = term.getch()
+        self.update_seen_lines()
         if ord(c) == 127: #delete should be backspace
             c = '\b'
         # TODO: Arrow keys, function keys, keypad?
@@ -274,26 +325,6 @@ def line_empty(line):
         if c.char != ' ':
             return False
     return True
-
-def write(env, text):
-
-    # stream 3 overrides all other output
-    if 3 in env.selected_ostreams:
-        env.output_buffer[3] += text
-        return
-
-    # TODO: (if I so choose): stream 2 (transcript stream)
-    # should also be able to wordwrap if buffer is on
-    for stream in env.selected_ostreams:
-        if stream == 1:
-            env.screen.write(text)
-        else:
-            env.output_buffer[stream] += text
-
-def flush(env):
-    if 3 not in env.selected_ostreams:
-        if 1 in env.selected_ostreams:
-            env.screen.flush()
 
 def is_valid_inline_char(c):
     return c in ['\t', '\r', '\b'] or (ord(c) > 31 and ord(c) < 127)

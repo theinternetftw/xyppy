@@ -8,7 +8,6 @@ import random
 from zmach import to_signed_word, DBG
 from debug import warn, err
 from ops_impl_compat import *
-from vterm import write, flush
 
 import formats.quetzal as quetzal
 
@@ -500,7 +499,6 @@ def ret_popped(env, opinfo):
 def quit(env, opinfo):
     if DBG:
         warn('op: quit')
-    flush(env) # print all buff'd output
     env.quit()
 
 def print_(env, opinfo):
@@ -944,8 +942,6 @@ def handle_read(env, text_buffer, parse_buffer, time=0, routine=0):
         if DBG:
             err('interrupts requested but not impl\'d yet!')
 
-    flush(env) # all output needs to be pushed before read
-
     user_input = ascii_to_zscii(env.screen.get_line_of_input().lower())
 
     fill_text_buffer(env, user_input, text_buffer)
@@ -1019,7 +1015,6 @@ def read_char(env, opinfo):
         if opinfo.operands[1] != 0 or opinfo.operands[2] != 0:
             if DBG:
                 warn('read_char: interrupts not impl\'d yet!')
-    flush(env) # all output needs to be pushed before read
     c = ascii_to_zscii(env.screen.getch())[0]
     set_var(env, opinfo.store_var, c)
 
@@ -1477,3 +1472,15 @@ def save_undo(env, opinfo):
         warn('op: save_undo (not impld for now)')
         warn('    (but at least I can notify the game of that)')
 
+def write(env, text):
+    # stream 3 overrides all other output
+    if 3 in env.selected_ostreams:
+        env.output_buffer[3] += text
+        return
+    # TODO: (if I so choose): stream 2 (transcript stream)
+    # should also be able to wordwrap if buffer is on
+    for stream in env.selected_ostreams:
+        if stream == 1:
+            env.screen.write(text)
+        else:
+            env.output_buffer[stream] += text

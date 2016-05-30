@@ -284,6 +284,7 @@ class Env:
         self.hdr.flags2 &= ~3
         self.hdr.flags2 |= bits_to_save
     def quit(self):
+        self.screen.flush()
         sys.exit()
 
 class OpInfo:
