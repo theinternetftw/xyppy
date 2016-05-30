@@ -8,7 +8,7 @@
 
 * Supports all modern Z-machine games (versions 3, 4, 5, 7, and 8, and zblorb files)
 * Quetzal support, so saves are portable to and from many other zmachine apps
-* Healthy terminal support on windows and linux
+* Healthy color terminal support on windows and linux
 * Run games straight from the web by passing in a URL
 * A major focus was "feel." Lines scroll in like it's the 80s.
 
