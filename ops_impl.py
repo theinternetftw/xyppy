@@ -1258,18 +1258,18 @@ def erase_window(env, opinfo):
 
     window = to_signed_word(opinfo.operands[0])
 
-    if window in [0, -1]:
+    if window in [0, -1, -2]:
         env.screen.blank_bottom_win()
-    if window in [1, -1]:
+    if window in [1, -1, -2]:
         env.screen.blank_top_win()
 
     if window == -1:
         env.top_window_height = 0
         env.current_window = 0
 
-    if window in [0, -1]:
+    if window in [0, -1, -2]:
         env.cursor[0] = get_cursor_loc_after_erase(env, 0)
-    if window in [1, -1]:
+    if window in [1, -1, -2]:
         env.cursor[1] = get_cursor_loc_after_erase(env, 1)
 
     if DBG:
