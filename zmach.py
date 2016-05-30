@@ -438,8 +438,49 @@ def step(env):
         op, opinfo, env.pc = decode(env, pc)
         if pc >= env.hdr.static_mem_base:
             icache[pc] = op, opinfo, env.pc
+    next_pc = env.pc
 
-    op(env, opinfo)
+    if DBG:
+        warn(hex(pc))
+        warn('op:', op.__name__)
+        warn('    operands', dbg_decode_operands(env, op.__name__, opinfo.operands))
+        if opinfo.branch_offset != None:
+            warn('    branch_offset', opinfo.branch_offset)
+            warn('    branch_to', dbg_decode_branch(env, opinfo.branch_offset))
+            warn('    branch_on', opinfo.branch_on)
+
+        op(env, opinfo)
+
+        if opinfo.store_var:
+            warn(    'store_var', ops.get_var_name(opinfo.store_var))
+            warn(    'stored_result', dbg_decode_result(env, op.__name__, opinfo.store_var))
+    else:
+        op(env, opinfo)
+
+def dbg_decode_branch(env, offset):
+    if offset == 0 or offset == 1:
+        return env.callstack[-1].return_addr
+    return env.pc + offset - 2
+
+def dbg_decode_operands(env, opname, operands):
+    if opname in ['add', 'sub', 'mul', 'div', 'mod', 'jump', 'random_', 'print_num']:
+        return map(to_signed_word, operands)
+    elif opname in ['loadw', 'loadb', 'storew', 'storeb', 'inc_chk', 'dec_chk']:
+        return [operands[0], to_signed_word(operands[1])] + operands[2:]
+    elif opname in ['print_', 'print_ret']:
+        result = ops.unpack_string(env, operands)
+        if len(result) > 40:
+            return repr(result[:40] + '...')
+        return result
+    return operands
+
+def dbg_decode_result(env, opname, store_var):
+    if 'call' in opname:
+        return 'unknown (just called)'
+    var = ops.get_var(env, store_var, pop_stack=False)
+    if opname in ['add', 'sub', 'mul', 'div', 'mod']:
+        return to_signed_word(var)
+    return var
 
 DBG = 0
 
@@ -470,15 +511,8 @@ def main():
     env.screen.first_draw()
     ops.setup_opcodes(env)
     try:
-        if DBG:
-            i=0
-            while True:
-                i += 1
-                warn(i, hex(env.pc))
-                step(env)
-        else:
-            while True:
-                step(env)
+        while True:
+            step(env)
     except KeyboardInterrupt:
         print()
         print('zmach.py: exiting as requested.')
