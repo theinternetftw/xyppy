@@ -1060,9 +1060,8 @@ def restore(env, opinfo):
 
 def save_z3(env, opinfo):
     filename = env.screen.get_line_of_input('input save filename: ')
-    quetzal.write(env, filename)
-    # currently assuming save was successful
-    if opinfo.branch_on:
+    saved = quetzal.write(env, filename)
+    if saved and opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
 
 def save(env, opinfo):
@@ -1074,9 +1073,10 @@ def save(env, opinfo):
         return
 
     filename = env.screen.get_line_of_input('input save filename: ')
-    quetzal.write(env, filename)
-    # currently assuming save was successful
-    set_var(env, opinfo.store_var, 1)
+    if quetzal.write(env, filename):
+        set_var(env, opinfo.store_var, 1)
+    else:
+        set_var(env, opinfo.store_var, 0)
 
 def set_cursor(env, opinfo):
     env.screen.finish_wrapping()

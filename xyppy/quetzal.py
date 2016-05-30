@@ -208,31 +208,37 @@ def read(filename):
     return formChunk.subname, hdChunk, memChunk, stksChunk.frames
 
 def write(env, filename):
-    with open(filename, 'wb') as f:
-        chunks = [IFhdChunk.from_env(env),
-                  CMemChunk.from_env(env),
-                  StksChunk.from_env(env)]
-        formChunk = FormChunk.from_chunk_list('IFZS', chunks)
-        f.write(formChunk.pack())
+    try:
+        with open(filename, 'wb') as f:
+            chunks = [IFhdChunk.from_env(env),
+                      CMemChunk.from_env(env),
+                      StksChunk.from_env(env)]
+            formChunk = FormChunk.from_chunk_list('IFZS', chunks)
+            f.write(formChunk.pack())
+        return True
+    except IOError as ioerr:
+        env.screen.msg('error writing save file: '+str(ioerr)+'\n')
+        return False
 
 def load_to_env(env, filename):
+    msg = env.screen.msg
     try:
         subname, hdrChunk, memChunk, frames = read(filename)
-    except IOError as (errno, strerror):
-        print('error reading file: '+strerror)
+    except IOError as ioerr:
+        msg('error reading file: '+str(ioerr)+'\n')
         return False
     except:
-        print('error decoding quetzal save file')
+        msg('error decoding quetzal save file\n')
         return False
 
     if subname != 'IFZS':
-        print('not a quetzal save file')
+        msg('not a quetzal save file\n')
     if env.hdr.release != hdrChunk.release:
-        print('release doesn\'t match')
+        msg('release doesn\'t match\n')
     elif env.hdr.serial != hdrChunk.serial:
-        print('serial doesn\'t match')
+        msg('serial doesn\'t match\n')
     elif env.hdr.checksum != hdrChunk.checksum:
-        print('checksum does\'t match')
+        msg('checksum does\'t match\n')
     else:
         env.reset()
         for i in xrange(len(memChunk.mem)):

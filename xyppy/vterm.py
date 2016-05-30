@@ -324,11 +324,16 @@ class Screen(object):
         # is tough: need an isCygwin() check, but more importantly,
         # no win32 api direct from python in cygwin, so I'd have
         # to get around *that*. So right now, no escape sequence keys.
-
         if not is_valid_inline_char(c):
             return '?'
-
         return c
+
+    # for save game error messages and such
+    # TODO: better formatting here (?)
+    def msg(self, text):
+        self.write(text)
+        self.flush()
+        term.getch()
 
 def buf_empty(buf):
     for line in buf:
