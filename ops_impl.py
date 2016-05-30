@@ -1014,6 +1014,8 @@ def split_window(env, opinfo):
         env.screen.scroll_top_line_only()
 
     env.top_window_height = opinfo.operands[0]
+    if env.top_window_height > env.hdr.screen_height_units:
+        err('split_window: requested split bigger than screen:', env.top_window_height)
 
     # the spec suggests pushing the bottom window cursor down.
     # to allow for more trinity-style tricks, we'll do that only
@@ -1088,9 +1090,13 @@ def set_cursor(env, opinfo):
     # ignores win 0 (S 8.7.2.3)
     if env.current_window == 1:
         if col > env.hdr.screen_width_units:
-            err('set_cursor: set outside screen width')
+            if DBG:
+                warn('set_cursor: set outside screen width', col)
+            col = env.hdr.screen_width_units
         if row > env.hdr.screen_height_units:
-            err('set_cursor: set outside screen height')
+            if DBG:
+                warn('set_cursor: set outside screen height', row)
+            row = env.hdr.screen_height_units
         # see 3rd to last note at bottom of section 8
         env.top_window_height = max(env.top_window_height, row-1)
         # fix that row,col have a 1,1 origin
