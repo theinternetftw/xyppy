@@ -49,8 +49,6 @@ class Screen(object):
             self.textBuf[i] = self.make_screen_line()
 
     def blank_bottom_win(self):
-        if buf_empty(self.textBuf):
-            return
         for i in xrange(self.env.top_window_height, self.env.hdr.screen_height_units):
             self.scroll()
 
