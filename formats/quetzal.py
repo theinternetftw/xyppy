@@ -194,7 +194,7 @@ class StksChunk(Chunk):
         return packHdr(self) + framestr
 
 def read(filename):
-    with open(filename) as f:
+    with open(filename, 'rb') as f:
         formChunk = FormChunk.from_chunk(Chunk.from_data(f.read()))
         for chunk in formChunk.chunks:
             if chunk.name == 'IFhd':
@@ -208,7 +208,7 @@ def read(filename):
     return formChunk.subname, hdChunk, memChunk, stksChunk.frames
 
 def write(env, filename):
-    with open(filename, 'w') as f:
+    with open(filename, 'wb') as f:
         chunks = [IFhdChunk.from_env(env),
                   CMemChunk.from_env(env),
                   StksChunk.from_env(env)]
