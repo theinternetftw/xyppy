@@ -1310,7 +1310,7 @@ def set_window(env, opinfo):
         warn('    window:', env.current_window)
 
 def restore_z3(env, opinfo):
-    filename = raw_input('input save filename: ')
+    filename = env.screen.get_line_of_input('input save filename: ')
     loaded = quetzal.load_to_env(env, filename)
     if loaded:
         # move past save inst's branch byte(s)
@@ -1328,7 +1328,7 @@ def restore(env, opinfo):
         set_var(env, opinfo.store_var, 0)
         return
 
-    filename = raw_input('input save filename: ')
+    filename = env.screen.get_line_of_input('input save filename: ')
     loaded = quetzal.load_to_env(env, filename)
     if loaded:
         # set and move past save inst's svar byte
@@ -1342,7 +1342,7 @@ def restore(env, opinfo):
         warn('op: restore (z > 3 version)')
 
 def save_z3(env, opinfo):
-    filename = raw_input('input save filename: ')
+    filename = env.screen.get_line_of_input('input save filename: ')
     quetzal.write(env, filename)
     # currently assuming save was successful
     if opinfo.branch_on:
@@ -1359,7 +1359,7 @@ def save(env, opinfo):
         set_var(env, opinfo.store_var, 0)
         return
 
-    filename = raw_input('input save filename: ')
+    filename = env.screen.get_line_of_input('input save filename: ')
     quetzal.write(env, filename)
     # currently assuming save was successful
     set_var(env, opinfo.store_var, 1)

@@ -22,6 +22,9 @@ class ScreenChar(object):
     def __str__(self):
         return self.char
 
+def sc_line_to_string(line):
+    return repr(''.join(map(lambda x: x.char, line)))
+
 class Screen(object):
     def __init__(self, env):
         self.env = env
@@ -189,8 +192,13 @@ class Screen(object):
             else:
                 term.fill_to_eol_with_bg_color()
 
-    def get_line_of_input(self):
+    def get_line_of_input(self, prompt=''):
         env = self.env
+
+        for c in prompt:
+            self.write_unwrapped([ScreenChar(c, env.fg_color, env.bg_color, env.text_style)])
+        self.flush()
+
         term.home_cursor()
         row, col = env.cursor[env.current_window]
         term.cursor_down(row)
@@ -199,6 +207,7 @@ class Screen(object):
         if line_empty(self.textBuf[row][col:]):
             term.fill_to_eol_with_bg_color()
         term.show_cursor()
+
         text = ''
         edit_col = col
         c = term.getch()
