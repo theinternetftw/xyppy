@@ -299,6 +299,8 @@ class OpInfo:
         self.branch_on = branch_on
         self.text = text
         self.has_dynamic_operands = VarSize in sizes
+        self.last_pc_branch_var = None
+        self.last_pc_store_var = None
         if self.has_dynamic_operands:
             self.var_op_info = []
             for i in xrange(len(sizes)):
@@ -375,12 +377,12 @@ def decode(env, pc):
 
     if has_store_var[opcode]:
         opinfo.store_var = env.u8(operand_ptr)
-        env.last_pc_store_var = operand_ptr # to make quetzal saves easier
+        opinfo.last_pc_store_var = operand_ptr # to make quetzal saves easier
         operand_ptr += 1
 
     if has_branch_var[opcode]: # std:4.7
         branch_info = env.u8(operand_ptr)
-        env.last_pc_branch_var = operand_ptr # to make quetzal saves easier
+        opinfo.last_pc_branch_var = operand_ptr # to make quetzal saves easier
         operand_ptr += 1
         opinfo.branch_on = (branch_info & 128) == 128
         if branch_info & 64:
@@ -443,6 +445,12 @@ def step(env):
         if pc >= env.hdr.static_mem_base:
             icache[pc] = op, opinfo, env.pc
     next_pc = env.pc
+
+    # for Quetzal
+    if opinfo.last_pc_branch_var:
+        env.last_pc_branch_var = opinfo.last_pc_branch_var
+    if opinfo.last_pc_store_var:
+        env.last_pc_store_var = opinfo.last_pc_store_var
 
     if DBG:
         warn(hex(pc))
