@@ -193,6 +193,10 @@ def set_standard_flags(hdr):
 
     MAXIMUM_WIDTH = 80
     term_w, term_h = term.get_size()
+    if term_w > 1:
+        # inform games or bash or something (me?) seems to have
+        # trouble pushing all the way to the edge of terminals
+        term_w -= 1
 
     hdr.screen_width_units = min(MAXIMUM_WIDTH, term_w)
     hdr.screen_height_units = term_h

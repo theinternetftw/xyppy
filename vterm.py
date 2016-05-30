@@ -91,7 +91,7 @@ class Screen(object):
         env = self.env
         old_line = self.textBuf[env.top_window_height]
 
-        if not self.seenBuf[old_line]:
+        if not self.seenBuf[old_line] and not buf_empty(self.textBuf):
             self.pause_scroll_for_user_input()
 
         term.home_cursor()
@@ -102,13 +102,13 @@ class Screen(object):
         self.textBuf[env.top_window_height] = new_line
         self.seenBuf[new_line] = False
 
-        self.flush() # TODO: fun but slow, make a config option
+        self.slow_scroll_effect()
 
     def scroll(self, count_lines=True):
         env = self.env
         old_line = self.textBuf.pop(env.top_window_height)
 
-        if not self.seenBuf[old_line]:
+        if not self.seenBuf[old_line] and not buf_empty(self.textBuf):
             self.pause_scroll_for_user_input()
 
         term.home_cursor()
@@ -119,20 +119,28 @@ class Screen(object):
         self.textBuf.append(new_line)
         self.seenBuf[new_line] = False
 
-        self.flush() # TODO: fun but slow, make a config option
+        self.slow_scroll_effect()
 
     def update_seen_lines(self):
         self.seenBuf = {line: True for line in self.textBuf}
+        # make sure we set the seenBuf up to trigger next page
+        self.seenBuf[self.textBuf[-1]] = False
     def pause_scroll_for_user_input(self):
+        # TODO: maybe scroll all these lines off?
+        # (or all but the last one?)
+        # so you don't have to find your place if
+        # you get half a screen more of text, you
+        # know its always at the top after a manual
+        # scroll...
         if not buf_empty(self.textBuf):
-            self.flush()
             term_width = term.get_size()[0]
-            if term_width - self.env.hdr.screen_width_units > 3:
+            if term_width - self.env.hdr.screen_width_units > 0:
                 term.home_cursor()
                 term.cursor_down(self.env.hdr.screen_height_units - 1)
                 term.cursor_right(self.env.hdr.screen_width_units)
-                write_char(' ', self.env.fg_color, self.env.bg_color, 'normal')
-                write_char('...', self.env.fg_color, self.env.bg_color, 'normal')
+                write_char('+', self.env.fg_color, self.env.bg_color, 'normal')
+                #write_char('V', self.env.fg_color, self.env.bg_color, 'reverse_video')
+                term.home_cursor()
             term.getch()
         self.update_seen_lines()
 
@@ -142,6 +150,11 @@ class Screen(object):
             write_char(c.char, c.fg_color, c.bg_color, c.text_style)
         term.fill_to_eol_with_bg_color()
 
+    # TODO: fun but slow, make a config option
+    def slow_scroll_effect(self):
+        if not term.is_windows(): # windows is slow enough, atm :/
+            self.flush()
+
     def new_line(self):
         env, win = self.env, self.env.current_window
         row, col = env.cursor[win]
@@ -150,13 +163,13 @@ class Screen(object):
                 self.scroll()
                 env.cursor[win] = row, 0
             else:
-                self.flush() # TODO: fun but slow, make a config option
+                self.slow_scroll_effect()
                 env.cursor[win] = row+1, 0
         else:
             if row+1 < env.top_window_height:
                 env.cursor[win] = row+1, 0
             else:
-                env.cursor[win] = row, 0
+                env.cursor[win] = row, col-1 # as suggested by spec
 
     def write_wrapped(self, text_as_screenchars):
         self.wrapBuf += text_as_screenchars
@@ -312,6 +325,9 @@ class Screen(object):
         # no win32 api direct from python in cygwin, so I'd have
         # to get around *that*. So right now, no escape sequence keys.
 
+        if not is_valid_inline_char(c):
+            return '?'
+
         return c
 
 def buf_empty(buf):
@@ -326,5 +342,10 @@ def line_empty(line):
             return False
     return True
 
+def is_valid_getch_char(c):
+    # TODO: unicode input?
+    return c in ['\t', '\r', '\b', '\x1b'] or (ord(c) > 31 and ord(c) < 127)
+
 def is_valid_inline_char(c):
+    # TODO: unicode input?
     return c in ['\t', '\r', '\b'] or (ord(c) > 31 and ord(c) < 127)
