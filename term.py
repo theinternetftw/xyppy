@@ -115,8 +115,11 @@ def is_windows():
 
 def getch():
     if is_windows():
-        import msvcrt
-        return msvcrt.getch()
+        c = chr(ctypes.cdll.msvcrt._getch())
+        if ord(c) == 3:
+            # I see this when i hit ctrl-c
+            raise KeyboardInterrupt
+        return c
     else: #Unix
         import termios, tty
         fd = sys.stdin.fileno()
