@@ -2,13 +2,14 @@
 
 ### Usage:
 
-* python (-m xyppy or xyppy.py) &lt;FILE\_OR\_URL&gt;
+* python xyppy &lt;FILE\_OR\_URL&gt; (in module/dev mode)
+* python xyppy.py &lt;FILE\_OR\_URL&gt; (in single file mode)
 * run ./build.py to get that handy single-file xyppy.py
 
 ### Features:
 
-* Everything, including the build system, requires nothing but modern python 2
 * Supports all modern Z-machine games (versions 3, 4, 5, 7, and 8, and zblorb files)
+* Everything, including the build system, requires nothing but modern python 2
 * Quetzal support, so saves are portable to and from many other zmachine apps
 * Healthy color terminal support on windows and linux
 * Run games straight from the web by passing in a URL
