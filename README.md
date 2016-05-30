@@ -1,8 +1,12 @@
 # xyppy - infocom's z-machine in python
 
+### Requires:
+* Modern Python 2
+
 ### Usage:
 
-* python xyppy.py &lt;FILE\_OR\_URL&gt;
+* python (-m xyppy or xyppy.py) &lt;FILE\_OR\_URL&gt;
+* run ./build.py to get that handy single-file xyppy.py
 
 ### Features:
 
@@ -21,4 +25,4 @@
 ### TODO:
 * More features, implement the last few bits of the spec
 * Config file/options: e.g. turn slow scroll mode off (you monster)
-* Pack it up a little nicer, e.g. have just one file to run, or py2exe and friends
+* Python 2/3 compat

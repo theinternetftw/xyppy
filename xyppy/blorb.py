@@ -4,11 +4,6 @@ import sys
 import struct
 
 from iff import Chunk, FormChunk
-from quetzal import IFhdChunk
-
-def err(msg):
-    sys.stderr.write('error: '+msg+'\n')
-    sys.exit()
 
 class Resource(object):
     def __init__(self, usage, number, start):
