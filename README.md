@@ -6,6 +6,20 @@
 * python xyppy.py &lt;FILE\_OR\_URL&gt; (in single file mode)
 * run ./build.py to get that handy single-file xyppy.py
 
+### Quick Look:
+
+* Color
+
+![Color Support](https://github.com/theinternetftw/xyppy/raw/master/screens/color_support.gif)
+
+* Unicode
+
+![Unicode](https://github.com/theinternetftw/xyppy/raw/master/screens/unicode.gif)
+
+* Tricks like "Trinity Text" look as originally intended
+
+![ScrollbackAndTrinity](https://github.com/theinternetftw/xyppy/raw/master/screens/trinitybox.gif)
+
 ### Features:
 
 * Supports all modern Z-machine games (versions 3, 4, 5, 7, and 8, and zblorb files)
