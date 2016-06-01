@@ -967,16 +967,14 @@ def print_table(env, opinfo):
     else:
         skip = 0
 
-    original_col = env.cursor[env.current_window][1]
+    col = env.cursor[env.current_window][1]
     for i in xrange(height):
-        line = []
-        for j in xrange(width):
-            line.append(env.u8(tab_addr + i*(width+skip) + j))
+        row = env.cursor[env.current_window][0]
+        line = [env.u8(tab_addr + i*(width+skip) + j) for j in xrange(width)]
         write(env, zscii_to_ascii(env, line))
         if i < height - 1:
-            write(env, '\n')
             env.screen.finish_wrapping()
-            env.cursor[env.current_window] = env.cursor[env.current_window][0], original_col
+            env.cursor[env.current_window] = row+1, col
 
 def nop(env, opinfo):
     # what'd you expect?
