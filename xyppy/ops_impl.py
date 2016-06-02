@@ -974,7 +974,11 @@ def print_table(env, opinfo):
         write(env, zscii_to_ascii(env, line))
         if i < height - 1:
             env.screen.finish_wrapping()
-            env.cursor[env.current_window] = row+1, col
+            if (env.current_window == 0 and row < env.hdr.screen_height_units-1 or
+              env.current_window == 1 and row < env.top_window_height-1):
+                env.cursor[env.current_window] = row+1, col
+            else:
+                env.cursor[env.current_window] = row, col
 
 def nop(env, opinfo):
     # what'd you expect?
