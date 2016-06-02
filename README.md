@@ -10,7 +10,7 @@
 
 ![Color Support](https://github.com/theinternetftw/xyppy/raw/master/screens/color_support.gif)
 
-More screens can be found on [their dedicated page](https://github.com/theinternetftw/xyppy/master/screens)
+More screens can be found on [their dedicated page.](https://github.com/theinternetftw/xyppy/master/screens)
 
 ### Features:
 
