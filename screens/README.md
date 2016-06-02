@@ -1,14 +1,13 @@
 # (moving) Screenshots
 
-* Color
+* Tricks like "Trinity Text" look as originally intended
 
-![Color Support](https://github.com/theinternetftw/xyppy/raw/master/screens/color_support.gif)
+![ScrollbackAndTrinity](https://github.com/theinternetftw/xyppy/raw/master/screens/trinitybox.gif)
 
 * Unicode
 
 ![Unicode](https://github.com/theinternetftw/xyppy/raw/master/screens/unicode.gif)
 
-* Tricks like "Trinity Text" look as originally intended
+* Color
 
-![ScrollbackAndTrinity](https://github.com/theinternetftw/xyppy/raw/master/screens/trinitybox.gif)
-
+![Color Support](https://github.com/theinternetftw/xyppy/raw/master/screens/color_support.gif)
