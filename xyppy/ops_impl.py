@@ -167,8 +167,8 @@ def storew(env, opinfo):
     array_addr = opinfo.operands[0]
     word_index = to_signed_word(opinfo.operands[1])
     val = opinfo.operands[2]
-
     word_loc = 0xffff & (array_addr + 2*word_index)
+
     env.write16(word_loc, val)
 
 def store(env, opinfo):
@@ -177,14 +177,14 @@ def store(env, opinfo):
     set_var(env, var, val, push_stack=False)
 
 def and_(env, opinfo):
-    acc = opinfo.operands[0]
-    for operand in opinfo.operands[1:]:
+    acc = 0xffff
+    for operand in opinfo.operands:
         acc &= operand
     set_var(env, opinfo.store_var, acc)
 
 def or_(env, opinfo):
-    acc = opinfo.operands[0]
-    for operand in opinfo.operands[1:]:
+    acc = 0
+    for operand in opinfo.operands:
         acc |= operand
     set_var(env, opinfo.store_var, acc)
 
@@ -215,6 +215,7 @@ def inc_chk(env, opinfo):
     var_val = to_signed_word(get_var(env, var_loc))
     var_val = var_val+1 & 0xffff
     set_var(env, var_loc, var_val)
+
     var_val = to_signed_word(var_val)
     result = var_val > chk_val
     if result == opinfo.branch_on:
@@ -231,6 +232,7 @@ def dec_chk(env, opinfo):
     var_val = to_signed_word(get_var(env, var_loc))
     var_val = var_val-1 & 0xffff
     set_var(env, var_loc, var_val)
+
     var_val = to_signed_word(var_val)
     result = var_val < chk_val
     if result == opinfo.branch_on:
