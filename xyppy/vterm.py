@@ -91,7 +91,10 @@ class Screen(object):
         env = self.env
         old_line = self.textBuf[env.top_window_height]
 
-        if not self.seenBuf[old_line] and not buf_empty(self.textBuf):
+        # line_empty here as opposed to buf_empty in scroll because
+        # theatrical blank lines are very unlikely to factor in to
+        # showing what is almost certainly a status bar window
+        if not self.seenBuf[old_line] and not line_empty(old_line):
             self.pause_scroll_for_user_input()
 
         term.home_cursor()
@@ -101,8 +104,6 @@ class Screen(object):
         new_line = self.make_screen_line()
         self.textBuf[env.top_window_height] = new_line
         self.seenBuf[new_line] = False
-
-        self.slow_scroll_effect()
 
     def scroll(self, count_lines=True):
         env = self.env
