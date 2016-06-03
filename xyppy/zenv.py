@@ -224,12 +224,14 @@ def step(env):
     pc, icache = env.pc, env.icache
     if pc in icache:
         op, opinfo, env.pc = icache[pc]
-        if opinfo.has_dynamic_operands:
-            opinfo.fixup_dynamic_operands(env)
     else:
         op, opinfo, env.pc = ops_decode.decode(env, pc)
         if pc >= env.hdr.static_mem_base:
             icache[pc] = op, opinfo, env.pc
+
+    if opinfo.has_dynamic_operands:
+        opinfo.fixup_dynamic_operands(env)
+
     next_pc = env.pc
 
     # for Quetzal

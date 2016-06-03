@@ -67,21 +67,21 @@ def get_operand_sizes(szbyte):
     return sizes
 
 class OpInfo:
-    def __init__(self, operands=[], sizes=[], store_var=None, branch_offset=None, branch_on=None, text=None):
-        self.operands = operands
-        self.store_var = store_var
-        self.branch_offset = branch_offset
-        self.branch_on = branch_on
-        self.text = text
-        self.has_dynamic_operands = VarSize in sizes
+    def __init__(self, operands, var_op_info):
+
+        self.opcode = None # for debug/tools
+        self.is_extended = False # for debug/tools
+        self.store_var = None
+        self.branch_offset = None
+        self.branch_on = None
+        self.text = None
         self.last_pc_branch_var = None
         self.last_pc_store_var = None
-        if self.has_dynamic_operands:
-            self.var_op_info = []
-            for i in xrange(len(sizes)):
-                if sizes[i] == VarSize:
-                    pair = i, operands[i]
-                    self.var_op_info.append(pair)
+
+        self.operands = operands
+        self.var_op_info = var_op_info
+        self.has_dynamic_operands = len(var_op_info) > 0
+
     def fixup_dynamic_operands(self, env):
         for i, var_num in self.var_op_info:
             self.operands[i] = ops.get_var(env, var_num)
@@ -125,7 +125,9 @@ def decode(env, pc):
         err('unknown opform specified: ' + str(form))
 
     operands = []
-    for size in sizes:
+    var_op_info = []
+    for i in xrange(len(sizes)):
+        size = sizes[i]
         if size == WordSize:
             operands.append(env.u16(operand_ptr))
             operand_ptr += 2
@@ -133,8 +135,9 @@ def decode(env, pc):
             operands.append(env.u8(operand_ptr))
             operand_ptr += 1
         elif size == VarSize:
-            var_loc = env.u8(operand_ptr)
-            operands.append(var_loc) #this is fixedup to real val later by OpInfo class
+            operands.append(None) #this is fixedup after every load from icache by opinfo method
+            var_num = env.u8(operand_ptr)
+            var_op_info.append( (i,var_num) )
             operand_ptr += 1
         else:
             err('unknown operand size specified: ' + str(size))
@@ -148,7 +151,10 @@ def decode(env, pc):
         has_store_var = ops.has_store_var
         has_branch_var = ops.has_branch_var
 
-    opinfo = OpInfo(operands, sizes)
+    opinfo = OpInfo(operands, var_op_info)
+
+    opinfo.opcode = opcode
+    opinfo.is_extended = form == ExtForm
 
     if has_store_var[opcode]:
         opinfo.store_var = env.u8(operand_ptr)
@@ -202,9 +208,6 @@ def decode(env, pc):
         warn('      operands', opinfo.operands)
         warn('      next_pc', hex(next_pc))
         #warn('      bytes', op_hex)
-
-    if opinfo.has_dynamic_operands:
-        opinfo.fixup_dynamic_operands(env)
 
     return dispatch[opcode], opinfo, next_pc
 
