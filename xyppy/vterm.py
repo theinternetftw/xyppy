@@ -109,7 +109,7 @@ class Screen(object):
         env = self.env
         old_line = self.textBuf.pop(env.top_window_height)
 
-        if not self.seenBuf[old_line] and not buf_empty(self.textBuf):
+        if not self.seenBuf[old_line] and not buf_empty(self.textBuf[env.top_window_height:]):
             self.pause_scroll_for_user_input()
 
         term.home_cursor()
@@ -124,8 +124,9 @@ class Screen(object):
 
     def update_seen_lines(self):
         self.seenBuf = {line: True for line in self.textBuf}
-        # make sure we set the seenBuf up to trigger next page
-        self.seenBuf[self.textBuf[-1]] = False
+        if not line_empty(self.textBuf[-1]):
+            # bug? (vgame.z8 opening scene misses lines on scroll pause w/o this)
+            self.seenBuf[self.textBuf[-1]] = False
     def pause_scroll_for_user_input(self):
         # TODO: maybe scroll all these lines off?
         # (or all but the last one?)
@@ -133,6 +134,7 @@ class Screen(object):
         # you get half a screen more of text, you
         # know its always at the top after a manual
         # scroll...
+        self.flush()
         if not buf_empty(self.textBuf):
             term_width = term.get_size()[0]
             if term_width - self.env.hdr.screen_width_units > 0:
