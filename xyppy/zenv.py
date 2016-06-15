@@ -122,8 +122,10 @@ def set_standard_flags(hdr):
     MAXIMUM_WIDTH = 80
     term_w, term_h = term.get_size()
     if term_w > 1:
-        # inform games or bash or something (me?) seems to have
-        # trouble pushing all the way to the edge of terminals
+        # FIXME: (?) inform games or bash or something (me?) seems to have
+        # trouble pushing all the way to the edge of terminals. Saving a
+        # column is also handy for having a spot for the scroll-pause symbol,
+        # which, take NOTE, *doesn't* have trouble being drawn at the edge.
         term_w -= 1
 
     hdr.screen_width_units = min(MAXIMUM_WIDTH, term_w)

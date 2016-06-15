@@ -48,7 +48,7 @@ def get_size():
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
-        return cbuf.srWindow.Right-cbuf.srWindow.Left, cbuf.srWindow.Bottom-cbuf.srWindow.Top
+        return cbuf.srWindow.Right-cbuf.srWindow.Left+1, cbuf.srWindow.Bottom-cbuf.srWindow.Top+1
     else:
         import fcntl, termios, struct
         result = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, struct.pack('HHHH', 0, 0, 0, 0))
