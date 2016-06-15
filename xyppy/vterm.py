@@ -107,10 +107,12 @@ class Screen(object):
 
     def scroll(self, count_lines=True):
         env = self.env
-        old_line = self.textBuf.pop(env.top_window_height)
 
-        if not self.seenBuf[old_line] and not buf_empty(self.textBuf[env.top_window_height:]):
-            self.pause_scroll_for_user_input()
+        if not self.seenBuf[self.textBuf[env.top_window_height]]:
+            if not buf_empty(self.textBuf[env.top_window_height:]):
+                self.pause_scroll_for_user_input()
+
+        old_line = self.textBuf.pop(env.top_window_height)
 
         term.home_cursor()
         self.overwrite_line_with(old_line)
@@ -124,16 +126,14 @@ class Screen(object):
 
     def update_seen_lines(self):
         self.seenBuf = {line: True for line in self.textBuf}
-        if not line_empty(self.textBuf[-1]):
-            # bug? (vgame.z8 opening scene misses lines on scroll pause w/o this)
-            self.seenBuf[self.textBuf[-1]] = False
+
     def pause_scroll_for_user_input(self):
-        # TODO: maybe scroll all these lines off?
-        # (or all but the last one?)
-        # so you don't have to find your place if
-        # you get half a screen more of text, you
-        # know its always at the top after a manual
-        # scroll...
+        # TODO: save last paused line, check to
+        # see if it's still in the buffer next
+        # pause or next input()/getch(), then use
+        # that info to draw the plus or some other
+        # mark to show you where the last scroll pause
+        # was to help your eye track the scroll
         self.flush()
         if not buf_empty(self.textBuf):
             term_width = term.get_size()[0]
