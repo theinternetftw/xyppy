@@ -325,7 +325,7 @@ class Screen(object):
         # is tough: need an isCygwin() check, but more importantly,
         # no win32 api direct from python in cygwin, so I'd have
         # to get around *that*. So right now, no escape sequence keys.
-        if not is_valid_inline_char(c):
+        if not is_valid_getch_char(c):
             return '?'
         return c
 
@@ -350,8 +350,8 @@ def line_empty(line):
 
 def is_valid_getch_char(c):
     # TODO: unicode input?
-    return c in ['\t', '\r', '\b', '\x1b'] or (ord(c) > 31 and ord(c) < 127)
+    return c in ['\n', '\t', '\r', '\b', '\x1b'] or (ord(c) > 31 and ord(c) < 127)
 
 def is_valid_inline_char(c):
     # TODO: unicode input?
-    return c in ['\t', '\r', '\b'] or (ord(c) > 31 and ord(c) < 127)
+    return c in ['\n', '\t', '\r', '\b'] or (ord(c) > 31 and ord(c) < 127)
