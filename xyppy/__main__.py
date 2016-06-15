@@ -39,7 +39,7 @@ def main():
         while True:
             step(env)
     except KeyboardInterrupt:
-        print('xyppy.py: exiting as requested.')
+        pass
 
 if __name__ == '__main__':
     main()
