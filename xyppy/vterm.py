@@ -138,11 +138,7 @@ class Screen(object):
         if not buf_empty(self.textBuf):
             term_width = term.get_size()[0]
             if term_width - self.env.hdr.screen_width_units > 0:
-                term.home_cursor()
-                term.cursor_down(self.env.hdr.screen_height_units - 1)
-                term.cursor_right(self.env.hdr.screen_width_units)
-                write_char('+', self.env.fg_color, self.env.bg_color, 'normal')
-                #write_char('V', self.env.fg_color, self.env.bg_color, 'reverse_video')
+                term.write_char_to_bottom_right_corner('+', self.env.fg_color, self.env.bg_color)
                 term.home_cursor()
             term.getch()
         self.update_seen_lines()
