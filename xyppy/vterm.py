@@ -302,13 +302,11 @@ class Screen(object):
         return text
 
     def first_draw(self):
-        term.hide_cursor()
-        term.clear_screen()
-        term.home_cursor()
         env = self.env
         for i in xrange(env.hdr.screen_height_units-1):
             write_char('\n', env.fg_color, env.bg_color, env.text_style)
         term.fill_to_eol_with_bg_color()
+        term.home_cursor()
 
     def getch(self):
         self.flush()
