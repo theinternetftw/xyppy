@@ -4,6 +4,7 @@ import sys
 import struct
 
 from iff import Chunk, FormChunk
+from debug import err
 
 class Resource(object):
     def __init__(self, usage, number, start):
