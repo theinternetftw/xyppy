@@ -269,6 +269,7 @@ class Screen(object):
 
         text = ''
         edit_col = col
+        max_input_len = 120 # 120 char limit seen on gargoyle
         c = term.getch()
         while c != '\n' and c != '\r':
             if c == '\b' or ord(c) == 127:
@@ -285,7 +286,7 @@ class Screen(object):
                     text = text[:-1]
                     edit_col -= 1
             else:
-                if is_valid_inline_char(c):
+                if is_valid_inline_char(c) and len(text) < max_input_len:
                     text += c
                     if c == '\t':
                         term.putc('    ')
@@ -293,7 +294,6 @@ class Screen(object):
                         term.putc(c)
                     edit_col += 1
             c = term.getch()
-        text = text[:120] # 120 char limit seen on gargoyle
         term.hide_cursor()
         for t in text:
             self.write_unwrapped([ScreenChar(t, env.fg_color, env.bg_color, env.text_style)])
