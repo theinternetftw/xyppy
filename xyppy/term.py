@@ -54,6 +54,11 @@ def write_char_to_bottom_right_corner(char, fg_col, bg_col):
         # doesn't push the screen down in this case, while also making sure not
         # moving the cursor for those instances doesn't impact later text.
         #
+        # By rework everything I mean instead of just having win32 api versions
+        # of things in 2 or 3 functions here, I'd have to write native win32 api
+        # versions of all the things in here that use sys.stdout.write(), and also
+        # store and update a virtual cursor just for windows.
+        #
         # i.e. that auto-pause status line is totally staying right where it is.
 
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
