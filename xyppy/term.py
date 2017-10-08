@@ -5,10 +5,17 @@ import sys, atexit, ctypes
 # NOTE: ENABLE_VIRTUAL_TERMINAL_PROCESSING requires windows 10
 # TODO: use winapi to support older windows versions
 
+win_original_attributes = None
+
 def init(env):
+    global win_original_attributes
     if is_windows():
-        old_output_mode = ctypes.c_uint32()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        cbuf = CONSOLE_SCREEN_BUFFER_INFO()
+        ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
+        win_original_attributes = cbuf.wAttributes
+
+        old_output_mode = ctypes.c_uint32()
         ctypes.windll.kernel32.GetConsoleMode(stdout_handle, ctypes.byref(old_output_mode))
         ctypes.windll.kernel32.SetConsoleMode(stdout_handle,
             1 | # ENABLE_PROCESSED_OUTPUT
@@ -40,9 +47,10 @@ def init(env):
     hide_cursor()
 
 def reset_color():
+    global win_original_attributes
     if is_windows():
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
-        ctypes.windll.kernel32.SetConsoleTextAttribute(stdout_handle, 7)
+        ctypes.windll.kernel32.SetConsoleTextAttribute(stdout_handle, win_original_attributes)
     else:
         sys.stdout.write('\x1b[0m')
 
@@ -115,12 +123,21 @@ def clear_screen():
 def home_cursor():
     sys.stdout.write('\x1b[H')
 
+def rgb3_to_bgr3(col):
+    return ((col >> 2) & 1) | (col & 2) | ((col << 2) & 4)
 def set_color(fg_col, bg_col):
-    # assuming VT100 compat
-    color = str(fg_col + 28)
-    sys.stdout.write('\x1b['+color+'m')
-    color = str(bg_col + 38)
-    sys.stdout.write('\x1b['+color+'m')
+    if is_windows():
+        # convert from (rgb+2) to bgr
+        fg_col = rgb3_to_bgr3(fg_col-2)
+        bg_col = rgb3_to_bgr3(bg_col-2)
+        col_attr = fg_col | (bg_col << 4)
+        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.SetConsoleTextAttribute(stdout_handle, col_attr)
+    else:
+        color = str(fg_col + 28)
+        sys.stdout.write('\x1b['+color+'m')
+        color = str(bg_col + 38)
+        sys.stdout.write('\x1b['+color+'m')
 
 # TODO: any other encodings to check for?
 def supports_unicode():
