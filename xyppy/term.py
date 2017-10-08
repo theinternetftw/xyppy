@@ -4,18 +4,30 @@ import sys, atexit, ctypes
 
 def init(env):
     if is_windows():
+        old_output_mode = ctypes.c_uint32()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.GetConsoleMode(stdout_handle, ctypes.byref(old_output_mode))
         ctypes.windll.kernel32.SetConsoleMode(stdout_handle,
             1 | # ENABLE_PROCESSED_OUTPUT
             2 | # ENABLE_WRAP_AT_EOL_OUTPUT
             4 | # ENABLE_VIRTUAL_TERMINAL_PROCESSING
             8   # DISABLE_NEWLINE_AUTO_RETURN
         )
+        atexit.register(lambda: ctypes.windll.kernel32.SetConsoleMode(stdout_handle, old_output_mode.value))
+
+        old_input_mode = ctypes.c_uint32()
+        stdin_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-10))
+        ctypes.windll.kernel32.GetConsoleMode(stdin_handle, ctypes.byref(old_input_mode))
+        res = ctypes.windll.kernel32.SetConsoleMode(stdin_handle,
+            0x200 # ENABLE_VIRTUAL_TERMINAL_INPUT
+        )
+        atexit.register(lambda: ctypes.windll.kernel32.SetConsoleMode(stdin_handle, old_input_mode.value))
     else: # Unix
-        import termios
-        fd = sys.stdin.fileno()
-        orig = termios.tcgetattr(fd)
-        atexit.register(lambda: termios.tcsetattr(fd, termios.TCSAFLUSH, orig))
+        import termios, tty
+        stdin_fd = sys.stdin.fileno()
+        orig = termios.tcgetattr(stdin_fd)
+        atexit.register(lambda: termios.tcsetattr(stdin_fd, termios.TCSAFLUSH, orig))
+        tty.setcbreak(stdin_fd)
     def on_exit_common():
         home_cursor()
         cursor_down(env.hdr.screen_height_units)
@@ -123,21 +135,28 @@ def is_windows():
 
 def getch():
     if is_windows():
-        c = chr(ctypes.cdll.msvcrt._getch())
+        stdin_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-10))
+        one_char_buf = ctypes.c_uint32()
+        chars_read = ctypes.c_uint32()
+        # use ReadConsole to get the VT100 keys our console mode gives us
+        result = ctypes.windll.kernel32.ReadConsoleW(stdin_handle,
+                                                     ctypes.byref(one_char_buf),
+                                                     1,
+                                                     ctypes.byref(chars_read),
+                                                     0)
+
+        if result == 0 or chars_read.value != 1:
+            last_err = ctypes.windll.kernel32.GetLastError()
+            print('LAST ERR', last_err)
+            err('failed to read console')
+
+        c = chr(one_char_buf.value)
         if ord(c) == 3:
-            # I see this when i hit ctrl-c
+            # occurs when ctrl-c is pressed on windows
             raise KeyboardInterrupt
         return c
     else: #Unix
-        import termios, tty
-        fd = sys.stdin.fileno()
-        old = termios.tcgetattr(fd)
-        try:
-            tty.setcbreak(fd)
-            ch = sys.stdin.read(1)
-        finally:
-            termios.tcsetattr(fd, termios.TCSAFLUSH, old)
-        return ch
+        return sys.stdin.read(1)
 
 def puts(c):
     sys.stdout.write(c)
