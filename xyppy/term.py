@@ -139,7 +139,8 @@ def getch():
         one_char_buf = ctypes.c_uint32()
         chars_read = ctypes.c_uint32()
         # use ReadConsole to get the VT100 keys our console mode gives us
-        result = ctypes.windll.kernel32.ReadConsoleW(stdin_handle,
+        # NOTE: W version of this function == ERROR_NOACCESS after text color set in photopia!?
+        result = ctypes.windll.kernel32.ReadConsoleA(stdin_handle,
                                                      ctypes.byref(one_char_buf),
                                                      1,
                                                      ctypes.byref(chars_read),
