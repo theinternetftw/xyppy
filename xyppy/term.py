@@ -139,5 +139,5 @@ def getch():
             termios.tcsetattr(fd, termios.TCSAFLUSH, old)
         return ch
 
-def putc(c):
+def puts(c):
     sys.stdout.write(c)

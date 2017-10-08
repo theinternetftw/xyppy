@@ -283,7 +283,7 @@ class Screen(object):
                         term.cursor_left(4)
                     else:
                         term.cursor_left()
-                        term.putc(' ')
+                        term.puts(' ')
                         term.cursor_left()
                     text = text[:-1]
                     edit_col -= 1
@@ -291,9 +291,9 @@ class Screen(object):
                 if is_valid_inline_char(c) and len(text) < max_input_len:
                     text += c
                     if c == '\t':
-                        term.putc('    ')
+                        term.puts('    ')
                     else:
-                        term.putc(c)
+                        term.puts(c)
                     edit_col += 1
             c = term.getch()
         term.hide_cursor()
