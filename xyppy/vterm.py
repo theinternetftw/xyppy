@@ -136,10 +136,12 @@ class Screen(object):
         # was to help your eye track the scroll
         self.flush()
         if not buf_empty(self.textBuf):
-            term_width = term.get_size()[0]
+            term_width, term_height = term.get_size()
             if term_width - self.env.hdr.screen_width_units > 0:
-                term.write_char_to_bottom_right_corner('+', self.env.fg_color, self.env.bg_color)
                 term.home_cursor()
+                term.cursor_down(term_height-1)
+                term.cursor_right(term_width-1)
+                term.write_char_with_color('+', self.env.fg_color, self.env.bg_color)
             term.getch()
         self.update_seen_lines()
 

@@ -5,8 +5,13 @@ import sys, atexit, ctypes
 def init(env):
     if is_windows():
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
-        ctypes.windll.kernel32.SetConsoleMode(stdout_handle, 7)
-    else: #Unix
+        ctypes.windll.kernel32.SetConsoleMode(stdout_handle,
+            1 | # ENABLE_PROCESSED_OUTPUT
+            2 | # ENABLE_WRAP_AT_EOL_OUTPUT
+            4 | # ENABLE_VIRTUAL_TERMINAL_PROCESSING
+            8   # DISABLE_NEWLINE_AUTO_RETURN
+        )
+    else: # Unix
         import termios
         fd = sys.stdin.fileno()
         orig = termios.tcgetattr(fd)
@@ -31,49 +36,6 @@ def write_char_with_color(char, fg_col, bg_col):
     if char == '\n':
         fill_to_eol_with_bg_color() # insure bg_col covers rest of line
     sys.stdout.write(char)
-
-def write_char_to_bottom_right_corner(char, fg_col, bg_col):
-
-    home_cursor()
-    w, h = get_size()
-    cursor_down(h-1)
-    cursor_right(w-1)
-
-    if is_windows():
-
-        # Windows command line will automatically push buffer down a line
-        # on getting the last char of the last line, even without a newline.
-        # This breaks any non-scrolling, screen-filling display, and must be
-        # worked around.
-        #
-        # Windows implementing this painful behavior means that anything that
-        # fills the screen will see this happen. Right now that's not a problem
-        # because xyppy already reserves a 1 char right margin for auto-pause
-        # symbols. But if I ever want to allow games to arbitrarily fill the
-        # whole screen, I'll have to rework everything to make sure windows
-        # doesn't push the screen down in this case, while also making sure not
-        # moving the cursor for those instances doesn't impact later text.
-        #
-        # By rework everything I mean instead of just having win32 api versions
-        # of things in 2 or 3 functions here, I'd have to write native win32 api
-        # versions of all the things in here that use sys.stdout.write(), and also
-        # store and update a virtual cursor just for windows.
-        #
-        # i.e. that auto-pause status line is totally staying right where it is.
-
-        cbuf = CONSOLE_SCREEN_BUFFER_INFO()
-        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
-        ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
-        cursor = cbuf.dwCursorPosition
-
-        written = ctypes.c_uint(0)
-        ctypes.windll.kernel32.WriteConsoleOutputCharacterA(stdout_handle,
-                                                            ctypes.c_char_p(char),
-                                                            len(char),
-                                                            cursor,
-                                                            ctypes.byref(written))
-    else:
-        sys.stdout.write(char)
 
 class COORD(ctypes.Structure):
     _fields_ = [("X", ctypes.c_short), ("Y", ctypes.c_short)]
