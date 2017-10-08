@@ -37,11 +37,7 @@ def init(env):
     hide_cursor()
 
 def reset_color():
-    if is_windows():
-        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
-        ctypes.windll.kernel32.SetConsoleTextAttribute(stdout_handle, 7)
-    else:
-        sys.stdout.write('\x1b[0m')
+    sys.stdout.write('\x1b[0m')
 
 def write_char_with_color(char, fg_col, bg_col):
     set_color(fg_col, bg_col)
@@ -88,6 +84,8 @@ def scroll_down():
             ctypes.windll.kernel32.SetConsoleWindowInfo(stdout_handle, 1, ctypes.byref(cbuf.srWindow))
     else:
         sys.stdout.write('\x1b[S')
+
+
 def fill_to_eol_with_bg_color():
     sys.stdout.write('\x1b[K') # insure bg_col covers rest of line
 def cursor_to_left_side():
