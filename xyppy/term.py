@@ -2,6 +2,9 @@
 
 import sys, atexit, ctypes
 
+# NOTE: ENABLE_VIRTUAL_TERMINAL_PROCESSING requires windows 10
+# TODO: use winapi to support older windows versions
+
 def init(env):
     if is_windows():
         old_output_mode = ctypes.c_uint32()
@@ -37,7 +40,11 @@ def init(env):
     hide_cursor()
 
 def reset_color():
-    sys.stdout.write('\x1b[0m')
+    if is_windows():
+        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.SetConsoleTextAttribute(stdout_handle, 7)
+    else:
+        sys.stdout.write('\x1b[0m')
 
 def write_char_with_color(char, fg_col, bg_col):
     set_color(fg_col, bg_col)
@@ -72,8 +79,7 @@ def get_size():
         return w, h
 
 def scroll_down():
-    # need to reset color to avoid adding bg at bottom
-    sys.stdout.write('\x1b[0m')
+    reset_color() # avoid adding bg at bottom
     if is_windows():
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
