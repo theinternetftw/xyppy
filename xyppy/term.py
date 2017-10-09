@@ -32,9 +32,9 @@ def init(env):
         ctypes.windll.kernel32.GetConsoleMode(stdout_handle, ctypes.byref(old_output_mode))
         ctypes.windll.kernel32.SetConsoleMode(stdout_handle,
             1 | # ENABLE_PROCESSED_OUTPUT
-            2 | # ENABLE_WRAP_AT_EOL_OUTPUT
-            4 | # ENABLE_VIRTUAL_TERMINAL_PROCESSING
-            8   # DISABLE_NEWLINE_AUTO_RETURN
+            2   # ENABLE_WRAP_AT_EOL_OUTPUT
+            # 4 | # ENABLE_VIRTUAL_TERMINAL_PROCESSING win 10 only : (
+            # 8   # DISABLE_NEWLINE_AUTO_RETURN        win 10 only : (
         )
         atexit.register(lambda: ctypes.windll.kernel32.SetConsoleMode(stdout_handle, old_output_mode.value))
 
@@ -42,7 +42,8 @@ def init(env):
         stdin_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-10))
         ctypes.windll.kernel32.GetConsoleMode(stdin_handle, ctypes.byref(old_input_mode))
         res = ctypes.windll.kernel32.SetConsoleMode(stdin_handle,
-            0x200 # ENABLE_VIRTUAL_TERMINAL_INPUT
+            0
+            # 0x200 # ENABLE_VIRTUAL_TERMINAL_INPUT    win 10 only : (
         )
         atexit.register(lambda: ctypes.windll.kernel32.SetConsoleMode(stdin_handle, old_input_mode.value))
     else: # Unix
@@ -115,6 +116,13 @@ class CONSOLE_CURSOR_INFO(ctypes.Structure):
     _fields_ = [("dwSize", ctypes.c_uint32),
                 ("bVisible", ctypes.c_int)]
 
+class char_union(ctypes.Union):
+    _fields_ = [("UnicodeChar", ctypes.c_uint16),
+                ("AsciiChar", ctypes.c_char)]
+class CHAR_INFO(ctypes.Structure):
+    _fields_ = [("Char", char_union),
+                ("Attributes", ctypes.c_uint16)]
+
 def get_size():
     if is_windows():
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
@@ -136,7 +144,25 @@ def scroll_down():
         if cbuf.srWindow.Bottom < cbuf.dwSize.Y - 1:
             cbuf.srWindow.Bottom += 1
             cbuf.srWindow.Top += 1
+            cbuf.dwCursorPosition.Y += 1
             ctypes.windll.kernel32.SetConsoleWindowInfo(stdout_handle, 1, ctypes.byref(cbuf.srWindow))
+        else:
+            src_rect = SMALL_RECT()
+            src_rect.Top = 1
+            src_rect.Left = 0
+            src_rect.Bottom = cbuf.dwSize.Y-1
+            src_rect.Right = cbuf.dwSize.X-1
+            dest = COORD()
+            dest.X = 0
+            dest.Y = 0
+            fill_char = CHAR_INFO()
+            fill_char.Char.AsciiChar = ' '
+            fill_char.Attributes = cbuf.wAttributes
+            ctypes.windll.kernel32.ScrollConsoleScreenBufferA(stdout_handle,
+                                                              ctypes.byref(src_rect),
+                                                              0,
+                                                              dest,
+                                                              ctypes.byref(fill_char))
     else:
         sys.stdout.write('\x1b[S')
 
