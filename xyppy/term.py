@@ -187,8 +187,7 @@ def fill_to_eol_with_bg_color():
             written = ctypes.c_uint(0)
             char_attr = ctypes.c_uint16(cbuf.wAttributes)
             space = ctypes.c_char_p(' ')
-            for i in range(0, distance):
-                # we only write on the left for status, so not touching cursor is fine
+            for i in range(distance):
                 temp_cursor.X = cursor.X + i
                 temp_cursor.Y = cursor.Y
                 ctypes.windll.kernel32.WriteConsoleOutputAttribute(stdout_handle,
