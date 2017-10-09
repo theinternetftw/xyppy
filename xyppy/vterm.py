@@ -319,13 +319,6 @@ class Screen(object):
         if ord(c) == 127: #delete should be backspace
             c = '\b'
         # TODO: Arrow keys, function keys, keypad?
-        # select() makes things complicated.
-        # mainly because I develop on cygwin where select just
-        # doesn't work with file descriptors (like stdin/out).
-        # Doing this right for me is tough: need an isCygwin() check,
-        # but more importantly, no win32 api direct from python in
-        # cygwin, so I'd have to get around *that*. So right now,
-        # no escape sequence keys.
         if not is_valid_getch_char(c):
             return '?'
         return c

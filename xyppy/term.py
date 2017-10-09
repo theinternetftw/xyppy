@@ -1,6 +1,14 @@
 # os-specific txt controls
 
-import sys, atexit, ctypes
+from __future__ import print_function
+
+import atexit
+import ctypes
+import sys
+import time
+
+from collections import deque
+from threading import Thread
 
 # NOTE: ENABLE_VIRTUAL_TERMINAL_PROCESSING requires windows 10
 # TODO: use winapi to support older windows versions
@@ -50,6 +58,7 @@ def init(env):
         show_cursor()
     atexit.register(on_exit_common)
     hide_cursor()
+    start_char_loop_thread()
 
 def reset_color():
     global win_original_attributes
@@ -290,7 +299,7 @@ def is_windows():
             is_windows_cached = False
     return is_windows_cached
 
-def getch():
+def getch_impl():
     if is_windows():
         stdin_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-10))
         one_char_buf = ctypes.c_uint32()
@@ -308,13 +317,42 @@ def getch():
             print('LAST ERR', last_err)
             err('failed to read console')
 
-        c = chr(one_char_buf.value)
-        if ord(c) == 3:
-            # occurs when ctrl-c is pressed on windows
-            raise KeyboardInterrupt
-        return c
+        return chr(one_char_buf.value)
     else: #Unix
         return sys.stdin.read(1)
+
+stored_chars = deque()
+def eat_char_loop():
+    global stored_chars
+    while True:
+        if len(stored_chars) < 32:
+            # safe, b/c only one thread pushes
+            stored_chars.append(getch_impl())
+        else:
+            time.sleep(0.005)
+def start_char_loop_thread():
+    t = Thread(target=eat_char_loop, args=[])
+    t.daemon = True
+    t.start()
+
+# only run these on the main thread
+def getch():
+    global stored_chars
+    sys.stdout.flush()
+    while len(stored_chars) == 0:
+        time.sleep(0.005)
+    # safe, b/c only one thread pops
+    c = stored_chars.popleft()
+    if ord(c) == 3:
+        # 0x03 == ctrl-c is pressed on windows. checked here
+        # to keep the raise on the main thread (avoid hang).
+        raise KeyboardInterrupt
+    return c
+def peekch():
+    if len(stored_chars):
+        # safe, b/c only one thread peeks/pops
+        return stored_chars[0]
+    return ''
 
 def puts(c):
     sys.stdout.write(c)
