@@ -252,6 +252,7 @@ class Screen(object):
                 write_char('\n', c.fg_color, c.bg_color, c.text_style)
             else:
                 term.fill_to_eol_with_bg_color()
+        term.flush()
 
     def get_line_of_input(self, prompt=''):
         env = self.env

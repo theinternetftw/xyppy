@@ -318,3 +318,7 @@ def getch():
 
 def puts(c):
     sys.stdout.write(c)
+    sys.stdout.flush()
+
+def flush():
+    sys.stdout.flush()
