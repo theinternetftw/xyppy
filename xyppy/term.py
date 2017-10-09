@@ -63,7 +63,30 @@ def write_char_with_color(char, fg_col, bg_col):
     set_color(fg_col, bg_col)
     if char == '\n':
         fill_to_eol_with_bg_color() # insure bg_col covers rest of line
-    sys.stdout.write(char)
+    if is_windows() and char != '\n':
+        cbuf = CONSOLE_SCREEN_BUFFER_INFO()
+        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
+
+        cursor = cbuf.dwCursorPosition
+        # we only write on the left for status, so not touching cursor is fine
+        written = ctypes.c_uint(0)
+        char_attr = ctypes.c_uint16(cbuf.wAttributes)
+        ctypes.windll.kernel32.WriteConsoleOutputAttribute(stdout_handle,
+                                                           ctypes.byref(char_attr),
+                                                           1,
+                                                           cursor,
+                                                           ctypes.byref(written))
+        ctypes.windll.kernel32.WriteConsoleOutputCharacterA(stdout_handle,
+                                                            ctypes.c_char_p(char),
+                                                            1,
+                                                            cursor,
+                                                            ctypes.byref(written))
+        if cursor.X < cbuf.srWindow.Right - 1:
+            cursor.X += 1
+            ctypes.windll.kernel32.SetConsoleCursorPosition(stdout_handle, cursor)
+    else:
+        sys.stdout.write(char)
 
 class COORD(ctypes.Structure):
     _fields_ = [("X", ctypes.c_short), ("Y", ctypes.c_short)]
@@ -117,29 +140,95 @@ def fill_to_eol_with_bg_color():
 
         cursor = cbuf.dwCursorPosition
         # subtract one to avoid default windows scroll-on-last-col-write behavior
-        distance = cbuf.srWindow.Right - cursor.X - 1
+        distance = cbuf.srWindow.Right - cursor.X
         if distance > 0:
-            blanks = ' ' * distance
+            cbuf = CONSOLE_SCREEN_BUFFER_INFO()
+            stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+            ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
+
+            cursor = cbuf.dwCursorPosition
+            temp_cursor = COORD()
+
             written = ctypes.c_uint(0)
-            ctypes.windll.kernel32.WriteConsoleA(stdout_handle,
-                                                 ctypes.c_char_p(blanks),
-                                                 len(blanks),
-                                                 ctypes.byref(written), 0)
+            char_attr = ctypes.c_uint16(cbuf.wAttributes)
+            space = ctypes.c_char_p(' ')
+            for i in range(0, distance):
+                # we only write on the left for status, so not touching cursor is fine
+                temp_cursor.X = cursor.X + i
+                temp_cursor.Y = cursor.Y
+                ctypes.windll.kernel32.WriteConsoleOutputAttribute(stdout_handle,
+                                                                   ctypes.byref(char_attr),
+                                                                   1,
+                                                                   temp_cursor,
+                                                                   ctypes.byref(written))
+                ctypes.windll.kernel32.WriteConsoleOutputCharacterA(stdout_handle,
+                                                                    space,
+                                                                    1,
+                                                                    temp_cursor,
+                                                                    ctypes.byref(written))
     else:
         sys.stdout.write('\x1b[K') # insure bg_col covers rest of line
 def cursor_to_left_side():
-    unused_must_write_windows_version
-    sys.stdout.write('\x1b[G')
+    if is_windows():
+        cbuf = CONSOLE_SCREEN_BUFFER_INFO()
+        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
+
+        cursor = cbuf.dwCursorPosition
+        cursor.X = 0
+        ctypes.windll.kernel32.SetConsoleCursorPosition(stdout_handle, cursor)
+    else:
+        sys.stdout.write('\x1b[G')
 def cursor_up(count=1):
-    sys.stdout.write('\x1b['+str(count)+'A')
+    if is_windows():
+        cbuf = CONSOLE_SCREEN_BUFFER_INFO()
+        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
+
+        cursor = cbuf.dwCursorPosition
+        cursor.Y = max(0, cursor.Y-count)
+        ctypes.windll.kernel32.SetConsoleCursorPosition(stdout_handle, cursor)
+    else:
+        sys.stdout.write('\x1b['+str(count)+'A')
 def cursor_down(count=1):
-    sys.stdout.write('\x1b['+str(count)+'B')
+    if is_windows():
+        cbuf = CONSOLE_SCREEN_BUFFER_INFO()
+        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
+
+        cursor = cbuf.dwCursorPosition
+        cursor.Y = min(cbuf.dwSize.Y-1, cursor.Y+count)
+        ctypes.windll.kernel32.SetConsoleCursorPosition(stdout_handle, cursor)
+    else:
+        sys.stdout.write('\x1b['+str(count)+'B')
 def cursor_right(count=1):
-    sys.stdout.write('\x1b['+str(count)+'C')
+    if is_windows():
+        cbuf = CONSOLE_SCREEN_BUFFER_INFO()
+        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
+
+        cursor = cbuf.dwCursorPosition
+        cursor.X = min(cbuf.dwSize.X-1, cursor.X+count)
+        ctypes.windll.kernel32.SetConsoleCursorPosition(stdout_handle, cursor)
+    else:
+        sys.stdout.write('\x1b['+str(count)+'C')
 def cursor_left(count=1):
-    sys.stdout.write('\x1b['+str(count)+'D')
+    if is_windows():
+        cbuf = CONSOLE_SCREEN_BUFFER_INFO()
+        stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
+        ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
+
+        cursor = cbuf.dwCursorPosition
+        cursor.X = max(0, cursor.X-count)
+        ctypes.windll.kernel32.SetConsoleCursorPosition(stdout_handle, cursor)
+    else:
+        sys.stdout.write('\x1b['+str(count)+'D')
 def clear_line():
-    sys.stdout.write('\x1b[2K')
+    if is_windows():
+        cursor_to_left_side()
+        fill_to_eol_with_bg_color()
+    else:
+        sys.stdout.write('\x1b[2K')
 def hide_cursor():
     if is_windows():
         blank_cursor = CONSOLE_CURSOR_INFO()
@@ -156,6 +245,7 @@ def show_cursor():
     else:
         sys.stdout.write('\x1b[?25h')
 def clear_screen():
+    not_used_must_write_windows_version_so_crash_here_okay
     sys.stdout.write('\x1b[2J')
 def home_cursor():
     if is_windows():

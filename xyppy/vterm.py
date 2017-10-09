@@ -140,7 +140,8 @@ class Screen(object):
             if term_width - self.env.hdr.screen_width_units > 0:
                 term.home_cursor()
                 term.cursor_down(term_height-1)
-                term.cursor_right(term_width-1)
+                # we reserve a one unit right margin for this status char
+                term.cursor_right(self.env.hdr.screen_width_units)
                 term.write_char_with_color('+', self.env.fg_color, self.env.bg_color)
             term.getch()
         self.update_seen_lines()
