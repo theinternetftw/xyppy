@@ -16,6 +16,9 @@ from threading import Thread
 win_original_attributes = None
 win_original_cursor_info = None
 
+unix_in_tstp_signal = False
+unix_screen_is_reset = False
+
 def init(env):
     global win_original_attributes
     global win_original_cursor_info
@@ -47,11 +50,32 @@ def init(env):
         )
         atexit.register(lambda: ctypes.windll.kernel32.SetConsoleMode(stdin_handle, old_input_mode.value))
     else: # Unix
-        import termios, tty
+        import os, signal, termios, tty
         stdin_fd = sys.stdin.fileno()
         orig = termios.tcgetattr(stdin_fd)
         atexit.register(lambda: termios.tcsetattr(stdin_fd, termios.TCSAFLUSH, orig))
         tty.setcbreak(stdin_fd)
+
+        def on_tstp_sig(signum, stack_frame):
+            unix_in_tstp_signal = True
+            on_exit_common()
+            signal.signal(signum, signal.SIG_DFL)
+            os.kill(os.getpid(), signum)
+        def on_cont_sig(signum, stack_frame):
+            stdin_fd = sys.stdin.fileno()
+            tty.setcbreak(stdin_fd)
+            unix_in_tstp_signal = False
+            if len(stored_chars):
+                # thread will eat the first char
+                # pressed after Ctrl-z
+                # TODO: fix this? hard since select/poll
+                # doesn't work right on cygwin.
+                stored_chars.pop()
+            unix_screen_is_reset = True
+            signal.signal(signal.SIGTSTP, on_tstp_sig)
+        signal.signal(signal.SIGTSTP, on_tstp_sig)
+        signal.signal(signal.SIGCONT, on_cont_sig)
+
     def on_exit_common():
         home_cursor()
         cursor_down(env.hdr.screen_height_units)
@@ -350,7 +374,7 @@ stored_chars = deque()
 def eat_char_loop():
     global stored_chars
     while True:
-        if len(stored_chars) < 32:
+        if len(stored_chars) < 32 and not unix_in_tstp_signal:
             # safe, b/c only one thread pushes
             stored_chars.append(getch_impl())
         else:
