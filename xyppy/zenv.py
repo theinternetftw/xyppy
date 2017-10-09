@@ -63,6 +63,7 @@ class Header(object):
         self.alpha_tab_base = env.u16(0x34)
         self.hdr_ext_tab_base = env.u16(0x36)
 
+        self.unicode_tab_base = 0
         self.hdr_ext_tab_length = 0
         if self.hdr_ext_tab_base:
             self.hdr_ext_tab_length = env.u16(self.hdr_ext_tab_base)
