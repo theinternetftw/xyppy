@@ -235,8 +235,6 @@ def step(env):
     if opinfo.has_dynamic_operands:
         opinfo.fixup_dynamic_operands(env)
 
-    next_pc = env.pc
-
     # for Quetzal
     if opinfo.last_pc_branch_var:
         env.last_pc_branch_var = opinfo.last_pc_branch_var
