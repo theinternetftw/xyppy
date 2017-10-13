@@ -629,11 +629,14 @@ class Frame:
         self.stack = stack
         self.return_val_loc = return_val_loc
 
-def handle_call(env, packed_addr, args, store_var):
+# in xyppy, call does the job of all other call_* variants, as
+# decode handles their differentiation.
+def call(env, opinfo):
+    packed_addr = opinfo.operands[0]
 
     if packed_addr == 0:
-        if store_var != None:
-            set_var(env, store_var, 0)
+        if opinfo.store_var != None:
+            set_var(env, opinfo.store_var, 0)
         if DBG:
             warn('op: calling 0 (returns false)')
         return
@@ -652,61 +655,28 @@ def handle_call(env, packed_addr, args, store_var):
             local_vars = local_vars[:] # leave cached vars for later hits
 
     # args dropped if past len of locals arr
-    num_args = min(len(args), len(local_vars))
+    num_args = min(len(opinfo.operands)-1, len(local_vars))
     for i in xrange(num_args):
-        local_vars[i] = args[i]
+        local_vars[i] = opinfo.operands[i+1]
 
     env.callstack.append(Frame(return_addr,
                                num_args,
                                local_vars,
-                               store_var))
+                               opinfo.store_var))
     env.pc = code_ptr
 
     if DBG:
-        warn('    helper: handle_call is calling', hex(call_addr))
+        warn('        calling', hex(call_addr))
         warn('        returning to', hex(return_addr))
-        warn('        using args', args)
-        if store_var == None:
+        warn('        using args', opinfo.operands[1:])
+        if opinfo.store_var == None:
             warn('        return val will be discarded')
         else:
-            warn('        return val will be placed in', get_var_name(store_var))
+            warn('        return val will be placed in', get_var_name(opinfo.store_var))
         warn('        num locals:', env.mem[call_addr])
         warn('        local vals:', local_vars)
         warn('        code ptr:', hex(code_ptr))
         warn('        first inst:', env.mem[code_ptr])
-
-# known as "call" *and* "call_vs" in the docs
-# also does the job of call_vs2
-def call(env, opinfo):
-    packed_addr = opinfo.operands[0]
-    args = opinfo.operands[1:]
-    handle_call(env, packed_addr, args, opinfo.store_var)
-
-def call_2s(env, opinfo):
-    packed_addr = opinfo.operands[0]
-    args = [opinfo.operands[1]]
-    handle_call(env, packed_addr, args, opinfo.store_var)
-
-def call_2n(env, opinfo):
-    packed_addr = opinfo.operands[0]
-    args = [opinfo.operands[1]]
-    handle_call(env, packed_addr, args, store_var=None)
-
-# also does the job of call_vn2
-def call_vn(env, opinfo):
-    packed_addr = opinfo.operands[0]
-    args = opinfo.operands[1:]
-    handle_call(env, packed_addr, args, store_var=None)
-
-def call_1s(env, opinfo):
-    packed_addr = opinfo.operands[0]
-    args = []
-    handle_call(env, packed_addr, args, opinfo.store_var)
-
-def call_1n(env, opinfo):
-    packed_addr = opinfo.operands[0]
-    args = []
-    handle_call(env, packed_addr, args, store_var=None)
 
 def check_arg_count(env, opinfo):
     arg_num = opinfo.operands[0]

@@ -44,8 +44,8 @@ def setup_opcodes(env):
     op(22,  mul,           svar=True)
     op(23,  div,           svar=True)
     op(24,  mod,           svar=True)
-    op(25, call_2s, svar=True)
-    op(26, call_2n)
+    op(25, call, svar=True) # impl's call_2s
+    op(26, call)            # impl's call_2n
     op(27, set_colour)
     op(28, throw)
 
@@ -73,8 +73,8 @@ def setup_opcodes(env):
     op(54,  mul,           svar=True)
     op(55,  div,           svar=True)
     op(56,  mod,           svar=True)
-    op(57, call_2s, svar=True)
-    op(58, call_2n)
+    op(57, call, svar=True) # impl's call_2s
+    op(58, call)            # impl's call_2n
     op(59, set_colour)
     op(60, throw)
 
@@ -102,8 +102,8 @@ def setup_opcodes(env):
     op(86,  mul,           svar=True)
     op(87,  div,           svar=True)
     op(88,  mod,           svar=True)
-    op(89, call_2s, svar=True)
-    op(90, call_2n)
+    op(89, call, svar=True) # impl's call_2s
+    op(90, call)            # impl's call_2n
     op(91, set_colour)
     op(92, throw)
 
@@ -131,8 +131,8 @@ def setup_opcodes(env):
     op(118, mul,           svar=True)
     op(119, div,           svar=True)
     op(120, mod,           svar=True)
-    op(121, call_2s, svar=True)
-    op(122, call_2n)
+    op(121, call, svar=True) # impl's call_2s
+    op(122, call)            # impl's call_2n
     op(123, set_colour)
     op(124, throw)
 
@@ -144,7 +144,7 @@ def setup_opcodes(env):
     op(133, inc)
     op(134, dec)
     op(135, print_addr)
-    op(136, call_1s, svar=True)
+    op(136, call, svar=True) # impl's call_1s
     op(137, remove_obj)
     op(138, print_obj)
     op(139, ret)
@@ -154,7 +154,7 @@ def setup_opcodes(env):
     if env.hdr.version < 5:
         op(143, not_, svar=True)
     else:
-        op(143, call_1n)
+        op(143, call) # impl's call_1n
 
     op(144, jz,                         bvar=True)
     op(145, get_sibling,   svar=True,   bvar=True)
@@ -164,7 +164,7 @@ def setup_opcodes(env):
     op(149, inc)
     op(150, dec)
     op(151, print_addr)
-    op(152, call_1s, svar=True)
+    op(152, call, svar=True) # impl's call_1s
     op(153, remove_obj)
     op(154, print_obj)
     op(155, ret)
@@ -174,7 +174,7 @@ def setup_opcodes(env):
     if env.hdr.version < 5:
         op(159, not_, svar=True)
     else:
-        op(159, call_1n)
+        op(159, call) # impl's call_1n
 
     op(160, jz,                         bvar=True)
     op(161, get_sibling,   svar=True,   bvar=True)
@@ -184,7 +184,7 @@ def setup_opcodes(env):
     op(165, inc)
     op(166, dec)
     op(167, print_addr)
-    op(168, call_1s, svar=True)
+    op(168, call, svar=True) # impl's call_1s
     op(169, remove_obj)
     op(170, print_obj)
     op(171, ret)
@@ -194,7 +194,7 @@ def setup_opcodes(env):
     if env.hdr.version < 5:
         op(175, not_, svar=True)
     else:
-        op(175, call_1n)
+        op(175, call) # impl's call_1n
 
     op(176, rtrue)
     op(177, rfalse)
@@ -253,8 +253,8 @@ def setup_opcodes(env):
     op(214, mul,           svar=True)
     op(215, div,           svar=True)
     op(216, mod,           svar=True)
-    op(217, call_2s, svar=True)
-    op(218, call_2n)
+    op(217, call, svar=True) # impl's call_2s
+    op(218, call)            # impl's call_2n
     op(219, set_colour)
     op(220, throw)
 
@@ -285,8 +285,8 @@ def setup_opcodes(env):
     op(246, read_char, svar=True)
     op(247, scan_table, svar=True, bvar=True)
     op(248, not_, svar=True)
-    op(249, call_vn)
-    op(250, call_vn) # impl's call_vn2
+    op(249, call) # impl's call_vn
+    op(250, call) # impl's call_vn2
     op(251, tokenize)
     # op(252, encode_text) (NOT YET IMPLEMENTED)
     op(253, copy_table)
