@@ -203,7 +203,7 @@ class Env:
     def check_dyn_mem(self, i):
         if i >= self.hdr.static_mem_base:
             err('game tried to write in static mem: '+str(i))
-        if i <= 0x36 and i != 0x10:
+        elif i <= 0x36 and i != 0x10:
             err('game tried to write in non-dyn header bytes: '+str(i))
     def write16(self, i, val):
         self.check_dyn_mem(i)

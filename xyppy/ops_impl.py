@@ -103,10 +103,9 @@ def jz(env, opinfo):
         handle_branch(env, opinfo.branch_offset)
 
 def je(env, opinfo):
-    first = opinfo.operands[0]
     result = False
     for i in xrange(1, len(opinfo.operands)):
-        if first == opinfo.operands[i]:
+        if opinfo.operands[0] == opinfo.operands[i]:
             result = True
             break
 
