@@ -320,7 +320,7 @@ def get_parent(env, opinfo):
 
 def handle_return(env, return_val):
     frame = env.callstack.pop()
-    if len(env.callstack) == 0:
+    if frame.return_addr == 0:
         err('returned from unreturnable/nonexistant function!')
     if frame.return_val_loc != None:
         set_var(env, frame.return_val_loc, return_val)
@@ -782,9 +782,6 @@ def pull(env, opinfo):
     var = opinfo.operands[0]
 
     frame = env.callstack[-1]
-    if len(frame.stack) == 0:
-        err('illegal op: attempted to pull from empty stack')
-
     result = frame.stack.pop()
     set_var(env, var, result, push_stack=False)
 
