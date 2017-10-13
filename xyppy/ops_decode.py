@@ -74,7 +74,6 @@ class OpInfo:
         self.store_var = None
         self.branch_offset = None
         self.branch_on = None
-        self.text = None
         self.last_pc_branch_var = None
         self.last_pc_store_var = None
 
