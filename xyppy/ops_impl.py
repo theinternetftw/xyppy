@@ -191,8 +191,7 @@ def or_(env, opinfo):
 def inc(env, opinfo):
     var_num = opinfo.operands[0]
     var_val = to_signed_word(get_var(env, var_num))
-    var_val = var_val+1 & 0xffff
-    set_var(env, var_num, var_val)
+    set_var(env, var_num, var_val+1)
 
     if DBG:
         warn('    var', get_var_name(var_num))
@@ -201,8 +200,7 @@ def inc(env, opinfo):
 def dec(env, opinfo):
     var_num = opinfo.operands[0]
     var_val = to_signed_word(get_var(env, var_num))
-    var_val = var_val-1 & 0xffff
-    set_var(env, var_num, var_val)
+    set_var(env, var_num, var_val-1)
 
     if DBG:
         warn('    var_num', var_num)
@@ -213,8 +211,7 @@ def inc_chk(env, opinfo):
     chk_val = to_signed_word(opinfo.operands[1])
 
     var_val = to_signed_word(get_var(env, var_loc))
-    var_val = var_val+1 & 0xffff
-    set_var(env, var_loc, var_val)
+    set_var(env, var_loc, var_val+1)
 
     var_val = to_signed_word(var_val)
     result = var_val > chk_val
@@ -230,8 +227,7 @@ def dec_chk(env, opinfo):
     chk_val = to_signed_word(opinfo.operands[1])
 
     var_val = to_signed_word(get_var(env, var_loc))
-    var_val = var_val-1 & 0xffff
-    set_var(env, var_loc, var_val)
+    set_var(env, var_loc, var_val-1)
 
     var_val = to_signed_word(var_val)
     result = var_val < chk_val
