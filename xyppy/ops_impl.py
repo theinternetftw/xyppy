@@ -640,8 +640,17 @@ def handle_call(env, packed_addr, args, store_var):
         return
 
     return_addr = env.pc
-    call_addr = unpack_addr_call(env, packed_addr)
-    local_vars, code_ptr = parse_call_header(env, call_addr)
+
+    fncache = env.fncache
+    if packed_addr in fncache:
+        call_addr, local_vars, code_ptr = fncache[packed_addr]
+        local_vars = local_vars[:] # leave cached vars for later hits
+    else:
+        call_addr = unpack_addr_call(env, packed_addr)
+        local_vars, code_ptr = parse_call_header(env, call_addr)
+        if call_addr >= env.hdr.static_mem_base:
+            fncache[packed_addr] = call_addr, local_vars, code_ptr
+            local_vars = local_vars[:] # leave cached vars for later hits
 
     # args dropped if past len of locals arr
     num_args = min(len(args), len(local_vars))

@@ -156,6 +156,7 @@ class Env:
         self.pc = self.hdr.pc
         self.callstack = [ops.Frame(0)]
         self.icache = {}
+        self.fncache = {}
 
         self.fg_color = self.hdr.default_fg_color
         self.bg_color = self.hdr.default_bg_color
