@@ -51,10 +51,11 @@ def init(env):
         atexit.register(lambda: ctypes.windll.kernel32.SetConsoleMode(stdin_handle, old_input_mode.value))
     else: # Unix
         import os, signal, termios, tty
-        stdin_fd = sys.stdin.fileno()
-        orig = termios.tcgetattr(stdin_fd)
-        atexit.register(lambda: termios.tcsetattr(stdin_fd, termios.TCSAFLUSH, orig))
-        tty.setcbreak(stdin_fd)
+        if sys.stdin.isatty():
+            stdin_fd = sys.stdin.fileno()
+            orig = termios.tcgetattr(stdin_fd)
+            atexit.register(lambda: termios.tcsetattr(stdin_fd, termios.TCSAFLUSH, orig))
+            tty.setcbreak(stdin_fd)
 
         def on_tstp_sig(signum, stack_frame):
             unix_in_tstp_signal = True
@@ -62,8 +63,9 @@ def init(env):
             signal.signal(signum, signal.SIG_DFL)
             os.kill(os.getpid(), signum)
         def on_cont_sig(signum, stack_frame):
-            stdin_fd = sys.stdin.fileno()
-            tty.setcbreak(stdin_fd)
+            if sys.stdin.isatty():
+                stdin_fd = sys.stdin.fileno()
+                tty.setcbreak(stdin_fd)
             unix_in_tstp_signal = False
             if len(stored_chars):
                 # thread will eat the first char
