@@ -20,12 +20,8 @@ def u16_prop(base):
     def getter(self): return self.env.u16(base)
     return property(fget=getter, fset=b16_setter(base))
 
-def s16_prop(base):
-    def getter(self): return self.env.s16(base)
-    return property(fget=getter, fset=b16_setter(base))
-
 def u8_prop(base):
-    def getter(self): return self.env.u8(base)
+    def getter(self): return self.env.mem[base]
     def setter(self, val): self.env.mem[base] = val & 0xff
     return property(fget=getter, fset=setter)
 
@@ -38,7 +34,7 @@ class Header(object):
     def __init__(self, env):
         self.env = env
 
-        self.version = env.u8(0x0)
+        self.version = env.mem[0x0]
 
         self.release = env.u16(0x2)
         self.high_mem_base = env.u16(0x4)
@@ -196,10 +192,6 @@ class Env:
         return (self.mem[i] << 8) | self.mem[i+1]
     def s16(self, i):
         return to_signed_word(self.u16(i))
-    def u8(self, i):
-        return self.mem[i]
-    def s8(self, i):
-        return to_signed_char(self.mem[i])
     def check_dyn_mem(self, i):
         if i >= self.hdr.static_mem_base:
             err('game tried to write in static mem: '+str(i))
@@ -233,8 +225,10 @@ def step(env):
         if pc >= env.hdr.static_mem_base:
             icache[pc] = op, opinfo, env.pc
 
+    # fixup dynamic operands
     if opinfo.has_dynamic_operands:
-        opinfo.fixup_dynamic_operands(env)
+        for i, var_num in opinfo.var_op_info:
+            opinfo.operands[i] = ops.get_var(env, var_num)
 
     # for Quetzal
     if opinfo.last_pc_branch_var:

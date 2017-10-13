@@ -27,21 +27,21 @@ def get_obj_str(env, obj):
 def get_parent_num(env, obj):
     obj_addr = get_obj_addr(env, obj)
     if env.hdr.version < 4:
-        return env.u8(obj_addr+4)
+        return env.mem[obj_addr+4]
     else:
         return env.u16(obj_addr+6)
 
 def get_sibling_num(env, obj):
     obj_addr = get_obj_addr(env, obj)
     if env.hdr.version < 4:
-        return env.u8(obj_addr+5)
+        return env.mem[obj_addr+5]
     else:
         return env.u16(obj_addr+8)
 
 def get_child_num(env, obj):
     obj_addr = get_obj_addr(env, obj)
     if env.hdr.version < 4:
-        return env.u8(obj_addr+6)
+        return env.mem[obj_addr+6]
     else:
         return env.u16(obj_addr+10)
 
@@ -294,17 +294,17 @@ def get_prop_list_start(env, obj):
     else:
         offset = 12
     prop_tab_addr = env.u16(get_obj_addr(env, obj)+offset)
-    obj_text_len_words = env.u8(prop_tab_addr)
+    obj_text_len_words = env.mem[prop_tab_addr]
     return prop_tab_addr + 1 + 2*obj_text_len_words
 
 # points at size/num
 def get_prop_size(env, prop_ptr):
     if env.hdr.version < 4:
-        return (env.u8(prop_ptr) >> 5) + 1
+        return (env.mem[prop_ptr] >> 5) + 1
     else:
-        first_byte = env.u8(prop_ptr)
+        first_byte = env.mem[prop_ptr]
         if first_byte & 128:
-            size_byte = env.u8(prop_ptr+1)
+            size_byte = env.mem[prop_ptr+1]
             if not (size_byte & 128):
                 msg = 'malformed prop size byte: '+bin(size_byte)
                 msg += ' - first_byte:'+bin(first_byte)
@@ -317,7 +317,7 @@ def get_prop_size(env, prop_ptr):
 
 # points at size/num
 def get_prop_num(env, prop_ptr):
-    num_byte = env.u8(prop_ptr)
+    num_byte = env.mem[prop_ptr]
     if env.hdr.version < 4:
         return num_byte & 31
     else:
@@ -328,14 +328,14 @@ def get_prop_data_ptr(env, prop_ptr):
     if env.hdr.version < 4:
         return prop_ptr+1
     else:
-        if env.u8(prop_ptr) & 128:
+        if env.mem[prop_ptr] & 128:
             return prop_ptr+2
         return prop_ptr+1
 
 # points straight to data, so past size/num
 def compat_get_prop_addr(env, obj, prop_num):
     prop_ptr = get_prop_list_start(env, obj)
-    while env.u8(prop_ptr):
+    while env.mem[prop_ptr]:
         num = get_prop_num(env, prop_ptr)
         size = get_prop_size(env, prop_ptr)
         data_ptr = get_prop_data_ptr(env, prop_ptr)
@@ -348,7 +348,7 @@ def get_sizenum_ptr(env, prop_data_ptr):
     if env.hdr.version < 4:
         return prop_data_ptr-1
     else:
-        if env.u8(prop_data_ptr-1) & 128:
+        if env.mem[prop_data_ptr-1] & 128:
             return prop_data_ptr-2
         return prop_data_ptr-1
 
@@ -371,13 +371,13 @@ def compat_get_next_prop(env, obj, prop_num):
 def print_prop_list(env, obj):
     warn('   ',obj,'-',get_obj_str(env, obj)+':')
     ptr = get_prop_list_start(env, obj)
-    while env.u8(ptr):
+    while env.mem[ptr]:
         num = get_prop_num(env, ptr)
         size = get_prop_size(env, ptr)
         data_ptr = get_prop_data_ptr(env, ptr)
         warn('    prop #',num,' - size',size, end='')
         for i in xrange(size):
-            warn('   ',hex(env.u8(data_ptr+i)), end='')
+            warn('   ',hex(env.mem[data_ptr+i]), end='')
         warn()
         ptr = data_ptr + size
 
@@ -393,7 +393,7 @@ def get_sizenum_from_addr(env, prop_data_addr):
     return size, num
 
 def parse_call_header(env, call_addr):
-    num_locals = env.u8(call_addr)
+    num_locals = env.mem[call_addr]
 
     if num_locals > 15:
         err('calling a non-function (more than 15 local vars)')
@@ -413,7 +413,7 @@ def parse_call_header(env, call_addr):
 
 def fill_text_buffer(env, user_input, text_buffer):
 
-    text_buf_len = env.u8(text_buffer)
+    text_buf_len = env.mem[text_buffer]
     if text_buf_len < 2:
         err('read error: malformed text buffer')
 
@@ -421,8 +421,8 @@ def fill_text_buffer(env, user_input, text_buffer):
 
     if env.hdr.version >= 5:
         # input may already exist, may have to append to it
-        if env.u8(text_buf_ptr):
-            text_buf_ptr += env.u8(text_buf_ptr)+1
+        if env.mem[text_buf_ptr]:
+            text_buf_ptr += env.mem[text_buf_ptr]+1
         else:
             text_buf_ptr += 1
 
@@ -444,7 +444,7 @@ def get_used_tbuf_len(env, text_buffer):
         return env.mem[text_buffer + 1]
     else:
         ptr = text_buffer+1
-        while env.u8(ptr):
+        while env.mem[ptr]:
             ptr += 1
         return ptr - text_buffer - 1
 
@@ -467,16 +467,16 @@ def clip_word_list(env, words):
 def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words=0):
 
     used_tbuf_len = get_used_tbuf_len(env, text_buffer)
-    parse_buf_len = env.u8(parse_buffer)
+    parse_buf_len = env.mem[parse_buffer]
     if parse_buf_len < 1:
         err('read error: malformed parse buffer')
 
     word_separators = []
     if dict_base == 0:
         dict_base = env.hdr.dict_base
-    num_word_seps = env.u8(dict_base)
+    num_word_seps = env.mem[dict_base]
     for i in xrange(num_word_seps):
-        word_separators.append(env.u8(dict_base+1+i))
+        word_separators.append(env.mem[dict_base+1+i])
 
     word = []
     words = []
@@ -486,7 +486,7 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
     scan_ptr = get_text_scan_ptr(env, text_buffer)
     for i in xrange(used_tbuf_len):
 
-        c = env.u8(scan_ptr)
+        c = env.mem[scan_ptr]
 
         if c == ord(' '):
             if word:
@@ -542,9 +542,9 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
     # be recreated on user input to match those chars.
 
     dict_base = env.hdr.dict_base
-    num_word_seps = env.u8(dict_base)
+    num_word_seps = env.mem[dict_base]
 
-    entry_length = env.u8(dict_base+1+num_word_seps)
+    entry_length = env.mem[dict_base+1+num_word_seps]
     num_entries = env.u16(dict_base+1+num_word_seps+1)
     # this can be negative to signify dictionary is unsorted
     num_entries = abs(num_entries)

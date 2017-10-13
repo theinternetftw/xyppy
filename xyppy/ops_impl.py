@@ -152,7 +152,7 @@ def loadb(env, opinfo):
     byte_index = to_signed_word(opinfo.operands[1])
     byte_loc = 0xffff & (array_addr + byte_index)
 
-    set_var(env, opinfo.store_var, env.u8(byte_loc)) 
+    set_var(env, opinfo.store_var, env.mem[byte_loc]) 
 
 def storeb(env, opinfo):
     array_addr = opinfo.operands[0]
@@ -422,7 +422,7 @@ def get_prop(env, opinfo):
     else:
         size, num = get_sizenum_from_addr(env, prop_addr)
         if size == 1:
-            result = env.u8(prop_addr)
+            result = env.mem[prop_addr]
         elif size == 2 or FORGIVING_GET_PROP:
             result = env.u16(prop_addr)
         else:
@@ -670,10 +670,10 @@ def handle_call(env, packed_addr, args, store_var):
             warn('        return val will be discarded')
         else:
             warn('        return val will be placed in', get_var_name(store_var))
-        warn('        num locals:', env.u8(call_addr))
+        warn('        num locals:', env.mem[call_addr])
         warn('        local vals:', local_vars)
         warn('        code ptr:', hex(code_ptr))
-        warn('        first inst:', env.u8(code_ptr))
+        warn('        first inst:', env.mem[code_ptr])
 
 # known as "call" *and* "call_vs" in the docs
 # also does the job of call_vs2
@@ -943,7 +943,7 @@ def scan_table(env, opinfo):
         if val_size == 2:
             test_val = env.u16(test_addr)
         else:
-            test_val = env.u8(test_addr)
+            test_val = env.mem[test_addr]
         if val == test_val:
             addr = test_addr
             break
@@ -976,7 +976,7 @@ def print_table(env, opinfo):
     col = env.cursor[env.current_window][1]
     for i in xrange(height):
         row = env.cursor[env.current_window][0]
-        line = [env.u8(tab_addr + i*(width+skip) + j) for j in xrange(width)]
+        line = [env.mem[tab_addr + i*(width+skip) + j] for j in xrange(width)]
         write(env, zscii_to_ascii(env, line))
         if i < height - 1:
             env.screen.finish_wrapping()
@@ -1046,7 +1046,7 @@ def restore_z3(env, opinfo):
     if loaded:
         # move past save inst's branch byte(s)
         # (which quetzal gives as the PC)
-        env.pc += 1 if env.u8(env.pc) & 64 else 2
+        env.pc += 1 if env.mem[env.pc] & 64 else 2
 
 def restore(env, opinfo):
     # TODO handle optional operands
@@ -1061,7 +1061,7 @@ def restore(env, opinfo):
     if loaded:
         # set and move past save inst's svar byte
         # (which quetzal gives as the PC)
-        set_var(env, env.u8(env.pc), 2)
+        set_var(env, env.mem[env.pc], 2)
         env.pc += 1
     else:
         set_var(env, opinfo.store_var, 0)

@@ -81,18 +81,14 @@ class OpInfo:
         self.var_op_info = var_op_info
         self.has_dynamic_operands = len(var_op_info) > 0
 
-    def fixup_dynamic_operands(self, env):
-        for i, var_num in self.var_op_info:
-            self.operands[i] = ops.get_var(env, var_num)
-
 def decode(env, pc):
 
-    opcode = env.u8(pc)
+    opcode = env.mem[pc]
     form = get_opcode_form(env, opcode)
     count = get_operand_count(opcode, form)
 
     if form == ExtForm:
-        opcode = env.u8(pc+1)
+        opcode = env.mem[pc+1]
 
     if form == ShortForm:
         szbyte = (opcode >> 4) & 3
@@ -100,16 +96,16 @@ def decode(env, pc):
         operand_ptr = pc+1
         sizes = get_operand_sizes(szbyte)
     elif form == VarForm:
-        szbyte = env.u8(pc+1)
+        szbyte = env.mem[pc+1]
         operand_ptr = pc+2
         sizes = get_operand_sizes(szbyte)
         # handle call_vn2/vs2's extra szbyte
         if opcode in (236, 250):
-            szbyte2 = env.u8(pc+2)
+            szbyte2 = env.mem[pc+2]
             sizes += get_operand_sizes(szbyte2)
             operand_ptr = pc+3
     elif form == ExtForm:
-        szbyte = env.u8(pc+2)
+        szbyte = env.mem[pc+2]
         operand_ptr = pc+3
         sizes = get_operand_sizes(szbyte)
     elif form == LongForm:
@@ -131,11 +127,11 @@ def decode(env, pc):
             operands.append(env.u16(operand_ptr))
             operand_ptr += 2
         elif size == ByteSize:
-            operands.append(env.u8(operand_ptr))
+            operands.append(env.mem[operand_ptr])
             operand_ptr += 1
         elif size == VarSize:
-            operands.append(None) #this is fixedup after every load from icache by opinfo method
-            var_num = env.u8(operand_ptr)
+            operands.append(None) #this is fixedup after every load from icache
+            var_num = env.mem[operand_ptr]
             var_op_info.append( (i,var_num) )
             operand_ptr += 1
         else:
@@ -156,12 +152,12 @@ def decode(env, pc):
     opinfo.is_extended = form == ExtForm
 
     if has_store_var[opcode]:
-        opinfo.store_var = env.u8(operand_ptr)
+        opinfo.store_var = env.mem[operand_ptr]
         opinfo.last_pc_store_var = operand_ptr # to make quetzal saves easier
         operand_ptr += 1
 
     if has_branch_var[opcode]: # std:4.7
-        branch_info = env.u8(operand_ptr)
+        branch_info = env.mem[operand_ptr]
         opinfo.last_pc_branch_var = operand_ptr # to make quetzal saves easier
         operand_ptr += 1
         opinfo.branch_on = (branch_info & 128) == 128
@@ -170,7 +166,7 @@ def decode(env, pc):
         else:
             branch_offset = branch_info & 0x3f
             branch_offset <<= 8
-            branch_offset |= env.u8(operand_ptr)
+            branch_offset |= env.mem[operand_ptr]
             operand_ptr += 1
             # sign extend 14b # to 16b
             if branch_offset & 0x2000:
