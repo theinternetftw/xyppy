@@ -299,6 +299,7 @@ class Screen(object):
                     edit_col += 1
             c = term.getch()
         term.hide_cursor()
+        term.flush()
         for t in text:
             self.write_unwrapped([ScreenChar(t, env.fg_color, env.bg_color, env.text_style)])
         self.new_line_via_spaces(env.fg_color, env.bg_color, env.text_style)
