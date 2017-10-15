@@ -399,11 +399,12 @@ def print_char(env, opinfo):
     write(env, char)
 
 def get_prop_len(env, opinfo):
-    prop_data_addr = opinfo.operands[0]
-    if prop_data_addr == 0: # to spec
+    prop_data_ptr = opinfo.operands[0]
+    if prop_data_ptr == 0: # to spec
         size = 0
     else:
-        size, num = get_sizenum_from_addr(env, prop_data_addr)
+        sizenum_ptr = get_sizenum_ptr(env, prop_data_ptr)
+        size = get_prop_size(env, sizenum_ptr)
     set_var(env, opinfo.store_var, size)
 
 # seems to be needed for practicality
@@ -415,16 +416,18 @@ def get_prop(env, opinfo):
     obj = opinfo.operands[0]
     prop_num = opinfo.operands[1]
 
-    prop_addr = compat_get_prop_addr(env, obj, prop_num)
-    got_default_prop = prop_addr == 0
-    if got_default_prop:
-        result = get_default_prop(env, prop_num)
+    prop_data_ptr = get_prop_data_ptr_from_obj(env, obj, prop_num)
+    is_default_prop = prop_data_ptr == 0
+    if is_default_prop:
+        base = env.hdr.obj_tab_base
+        result = env.u16(base + 2*(prop_num-1))
     else:
-        size, num = get_sizenum_from_addr(env, prop_addr)
+        sizenum_ptr = get_sizenum_ptr(env, prop_data_ptr)
+        size = get_prop_size(env, sizenum_ptr)
         if size == 1:
-            result = env.mem[prop_addr]
+            result = env.mem[prop_data_ptr]
         elif size == 2 or FORGIVING_GET_PROP:
-            result = env.u16(prop_addr)
+            result = env.u16(prop_data_ptr)
         else:
             msg = 'illegal op: get_prop on outsized prop (not 1-2 bytes)'
             msg += ' - prop '+str(prop_num)
@@ -439,7 +442,7 @@ def get_prop(env, opinfo):
         warn('    obj', obj,'(',get_obj_str(env,obj),')')
         warn('    prop_num', prop_num)
         warn('    result', result)
-        warn('    got_default_prop', got_default_prop)
+        warn('    is_default_prop', is_default_prop)
         print_prop_list(env, obj)
 
 def put_prop(env, opinfo):
@@ -447,18 +450,19 @@ def put_prop(env, opinfo):
     prop_num = opinfo.operands[1]
     val = opinfo.operands[2]
 
-    prop_addr = compat_get_prop_addr(env, obj, prop_num)
-    if prop_addr == 0:
+    prop_data_ptr = get_prop_data_ptr_from_obj(env, obj, prop_num)
+    if prop_data_ptr == 0:
         msg = 'illegal op: put_prop on nonexistant property'
         msg += ' - prop '+str(prop_num)
         msg += ' not found on obj '+str(obj)+' ('+get_obj_str(env, obj)+')' 
         err(msg)
-    
-    size, num = get_sizenum_from_addr(env, prop_addr)
+
+    sizenum_ptr = get_sizenum_ptr(env, prop_data_ptr)
+    size = get_prop_size(env, sizenum_ptr)
     if size == 2:
-        env.write16(prop_addr, val)
+        env.write16(prop_data_ptr, val)
     elif size == 1:
-        env.write8(prop_addr, val & 0xff)
+        env.write8(prop_data_ptr, val & 0xff)
     else:
         msg = 'illegal op: put_prop on outsized prop (not 1-2 bytes)'
         msg += ' - prop '+str(prop_num)
@@ -481,7 +485,7 @@ def get_prop_addr(env, opinfo):
         # to be the expected behavior
         result = 0
     else:
-        result = compat_get_prop_addr(env, obj, prop_num)
+        result = get_prop_data_ptr_from_obj(env, obj, prop_num)
     set_var(env, opinfo.store_var, result)
 
     if DBG:
@@ -494,11 +498,22 @@ def get_prop_addr(env, opinfo):
 def get_next_prop(env, opinfo):
     obj = opinfo.operands[0]
     prop_num = opinfo.operands[1]
-    
+
+    next_prop_num = 0
     if obj:
-        next_prop_num = compat_get_next_prop(env, obj, prop_num)
-    else:
-        next_prop_num = 0
+        if prop_num == 0:
+            prop_start = get_prop_list_start(env, obj)
+            next_prop_num = get_prop_num(env, prop_start)
+        else:
+            prop_data_ptr = get_prop_data_ptr_from_obj(env, obj, prop_num)
+            if prop_data_ptr == 0:
+                msg = 'get_next_prop: passed nonexistant prop '
+                msg += str(prop_num)+' for obj '+str(obj)+' ('+get_obj_str(env,obj)+')'
+                print_prop_list(env, obj)
+                err(msg)
+            sizenum_ptr = get_sizenum_ptr(env, prop_data_ptr)
+            size = get_prop_size(env, sizenum_ptr)
+            next_prop_num = get_prop_num(env, prop_data_ptr + size)
     set_var(env, opinfo.store_var, next_prop_num)
 
     if DBG:

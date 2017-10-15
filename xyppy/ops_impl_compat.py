@@ -288,6 +288,7 @@ def ascii_to_zscii(string):
            result.append(ord('?'))
     return result
 
+# returns the first sizenum_ptr
 def get_prop_list_start(env, obj):
     if env.hdr.version < 4:
         offset = 7
@@ -297,51 +298,46 @@ def get_prop_list_start(env, obj):
     obj_text_len_words = env.mem[prop_tab_addr]
     return prop_tab_addr + 1 + 2*obj_text_len_words
 
-# points at size/num
-def get_prop_size(env, prop_ptr):
+def get_prop_size(env, sizenum_ptr):
     if env.hdr.version < 4:
-        return (env.mem[prop_ptr] >> 5) + 1
+        return (env.mem[sizenum_ptr] >> 5) + 1
     else:
-        first_byte = env.mem[prop_ptr]
+        first_byte = env.mem[sizenum_ptr]
         if first_byte & 128:
-            size_byte = env.mem[prop_ptr+1]
+            size_byte = env.mem[sizenum_ptr+1]
             if not (size_byte & 128):
                 msg = 'malformed prop size byte: '+bin(size_byte)
                 msg += ' - first_byte:'+bin(first_byte)
-                msg += ' - prop_ptr:'+hex(prop_ptr)
+                msg += ' - sizenum_ptr:'+hex(sizenum_ptr)
                 err(msg)
             return (size_byte & 63) or 64 # zero len == 64
         if first_byte & 64:
             return 2
         return 1
 
-# points at size/num
-def get_prop_num(env, prop_ptr):
-    num_byte = env.mem[prop_ptr]
+def get_prop_num(env, sizenum_ptr):
+    num_byte = env.mem[sizenum_ptr]
     if env.hdr.version < 4:
         return num_byte & 31
     else:
         return num_byte & 63
 
-# points at size/num
-def get_prop_data_ptr(env, prop_ptr):
+def get_prop_data_ptr(env, sizenum_ptr):
     if env.hdr.version < 4:
-        return prop_ptr+1
+        return sizenum_ptr+1
     else:
-        if env.mem[prop_ptr] & 128:
-            return prop_ptr+2
-        return prop_ptr+1
+        if env.mem[sizenum_ptr] & 128:
+            return sizenum_ptr+2
+        return sizenum_ptr+1
 
-# points straight to data, so past size/num
-def compat_get_prop_addr(env, obj, prop_num):
-    prop_ptr = get_prop_list_start(env, obj)
-    while env.mem[prop_ptr]:
-        num = get_prop_num(env, prop_ptr)
-        size = get_prop_size(env, prop_ptr)
-        data_ptr = get_prop_data_ptr(env, prop_ptr)
+def get_prop_data_ptr_from_obj(env, obj, prop_num):
+    sizenum_ptr = get_prop_list_start(env, obj)
+    while env.mem[sizenum_ptr]:
+        num = get_prop_num(env, sizenum_ptr)
+        data_ptr = get_prop_data_ptr(env, sizenum_ptr)
         if num == prop_num:
             return data_ptr
-        prop_ptr = data_ptr + size
+        sizenum_ptr = data_ptr + get_prop_size(env, sizenum_ptr)
     return 0 # not found
 
 def get_sizenum_ptr(env, prop_data_ptr):
@@ -351,22 +347,6 @@ def get_sizenum_ptr(env, prop_data_ptr):
         if env.mem[prop_data_ptr-1] & 128:
             return prop_data_ptr-2
         return prop_data_ptr-1
-
-def compat_get_next_prop(env, obj, prop_num):
-    if prop_num == 0:
-        prop_start = get_prop_list_start(env, obj)
-        next_prop_num = get_prop_num(env, prop_start)
-    else:
-        prop_data_addr = compat_get_prop_addr(env, obj, prop_num)
-        if prop_data_addr == 0:
-            msg = 'get_next_prop: passed nonexistant prop '
-            msg += str(prop_num)+' for obj '+str(obj)+' ('+get_obj_str(env,obj)+')'
-            print_prop_list(env, obj)
-            err(msg)
-        sizenum_ptr = get_sizenum_ptr(env, prop_data_addr)
-        size = get_prop_size(env, sizenum_ptr)
-        next_prop_num = get_prop_num(env, prop_data_addr + size)
-    return next_prop_num
 
 def print_prop_list(env, obj):
     warn('   ',obj,'-',get_obj_str(env, obj)+':')
@@ -380,17 +360,6 @@ def print_prop_list(env, obj):
             warn('   ',hex(env.mem[data_ptr+i]), end='')
         warn()
         ptr = data_ptr + size
-
-def get_default_prop(env, prop_num):
-    base = env.hdr.obj_tab_base
-    return env.u16(base + 2*(prop_num-1))
-
-# prop_data_addr is right past the size_num field
-def get_sizenum_from_addr(env, prop_data_addr):
-    sizenum_ptr = get_sizenum_ptr(env, prop_data_addr)
-    size = get_prop_size(env, sizenum_ptr)
-    num = get_prop_num(env, sizenum_ptr)
-    return size, num
 
 def parse_call_header(env, call_addr):
     num_locals = env.mem[call_addr]
