@@ -6,7 +6,7 @@ import ops
 import term
 import vterm
 import ops_decode
-from zmath import to_signed_word, to_signed_char
+from zmath import to_signed_word
 from debug import DBG, warn, err
 
 def b16_setter(base):
@@ -190,8 +190,6 @@ class Env:
 
     def u16(self, i):
         return (self.mem[i] << 8) | self.mem[i+1]
-    def s16(self, i):
-        return to_signed_word(self.u16(i))
     def check_dyn_mem(self, i):
         if i >= self.hdr.static_mem_base:
             err('game tried to write in static mem: '+str(i))

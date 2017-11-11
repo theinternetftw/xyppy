@@ -209,10 +209,9 @@ def inc_chk(env, opinfo):
     var_loc = opinfo.operands[0]
     chk_val = to_signed_word(opinfo.operands[1])
 
-    var_val = to_signed_word(get_var(env, var_loc))
-    set_var(env, var_loc, var_val+1)
+    var_val = to_signed_word(get_var(env, var_loc) + 1)
+    set_var(env, var_loc, var_val)
 
-    var_val = to_signed_word(var_val)
     result = var_val > chk_val
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
@@ -225,10 +224,9 @@ def dec_chk(env, opinfo):
     var_loc = opinfo.operands[0]
     chk_val = to_signed_word(opinfo.operands[1])
 
-    var_val = to_signed_word(get_var(env, var_loc))
-    set_var(env, var_loc, var_val-1)
+    var_val = to_signed_word(get_var(env, var_loc) - 1)
+    set_var(env, var_loc, var_val)
 
-    var_val = to_signed_word(var_val)
     result = var_val < chk_val
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
