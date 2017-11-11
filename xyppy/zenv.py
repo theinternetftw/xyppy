@@ -87,7 +87,9 @@ class Header(object):
 
     std_rev_number = u16_prop(0x32)
 
-def set_standard_flags(hdr):
+def set_standard_flags(env):
+    hdr = env.hdr
+
     if hdr.version < 4:
         # no variable-spaced font (bit 6 = 0)
         # no status line (bit 4 = 0)
@@ -139,7 +141,7 @@ def set_standard_flags(hdr):
 
     # clear flags 3 (S 11.1.7.4.1)
     if hdr.hdr_ext_tab_length >= 4:
-        env.mem[self.hdr_ext_tab_base+4] = 0
+        env.mem[hdr.hdr_ext_tab_base + 4] = 0
 
 class Env:
     def __init__(self, mem):
@@ -147,7 +149,7 @@ class Env:
         self.mem = array('B', map(ord, mem))
 
         self.hdr = Header(self)
-        set_standard_flags(self.hdr)
+        set_standard_flags(self)
 
         self.pc = self.hdr.pc
         self.callstack = [ops.Frame(0)]
@@ -186,7 +188,7 @@ class Env:
 
     def fixup_after_restore(self):
         # make sure our standard flags are set after load
-        set_standard_flags(self.hdr)
+        set_standard_flags(self)
 
     def u16(self, i):
         return (self.mem[i] << 8) | self.mem[i+1]
