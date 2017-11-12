@@ -16,10 +16,13 @@ win_original_cursor_info = None
 unix_in_tstp_signal = False
 unix_screen_is_reset = False
 
+stdin_is_tty = sys.stdin.isatty()
+stdout_is_tty = sys.stdout.isatty()
+
 def init(env):
     global win_original_attributes
     global win_original_cursor_info
-    if is_windows():
+    if is_windows:
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -48,7 +51,7 @@ def init(env):
         atexit.register(lambda: ctypes.windll.kernel32.SetConsoleMode(stdin_handle, old_input_mode.value))
     else: # Unix
         import os, signal, termios, tty
-        if sys.stdin.isatty():
+        if stdin_is_tty:
             stdin_fd = sys.stdin.fileno()
             orig = termios.tcgetattr(stdin_fd)
             atexit.register(lambda: termios.tcsetattr(stdin_fd, termios.TCSAFLUSH, orig))
@@ -60,7 +63,7 @@ def init(env):
             signal.signal(signum, signal.SIG_DFL)
             os.kill(os.getpid(), signum)
         def on_cont_sig(signum, stack_frame):
-            if sys.stdin.isatty():
+            if stdin_is_tty:
                 stdin_fd = sys.stdin.fileno()
                 tty.setcbreak(stdin_fd)
             unix_in_tstp_signal = False
@@ -86,7 +89,7 @@ def init(env):
 
 def reset_color():
     global win_original_attributes
-    if is_windows():
+    if is_windows:
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.SetConsoleTextAttribute(stdout_handle, win_original_attributes)
     else:
@@ -96,7 +99,7 @@ def write_char_with_color(char, fg_col, bg_col):
     set_color(fg_col, bg_col)
     if char == '\n':
         fill_to_eol_with_bg_color() # insure bg_col covers rest of line
-    if is_windows() and char != '\n':
+    if is_windows and char != '\n':
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -147,9 +150,9 @@ class CHAR_INFO(ctypes.Structure):
                 ("Attributes", ctypes.c_uint16)]
 
 def get_size():
-    if not sys.stdout.isatty():
+    if not stdout_is_tty:
         return 80, 40
-    elif is_windows():
+    elif is_windows:
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -162,7 +165,7 @@ def get_size():
 
 def scroll_down():
     reset_color() # avoid adding bg at bottom
-    if is_windows():
+    if is_windows:
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -191,7 +194,7 @@ def scroll_down():
 
 
 def fill_to_eol_with_bg_color():
-    if is_windows():
+    if is_windows:
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -226,7 +229,7 @@ def fill_to_eol_with_bg_color():
     else:
         sys.stdout.write('\x1b[K') # insure bg_col covers rest of line
 def cursor_to_left_side():
-    if is_windows():
+    if is_windows:
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -237,7 +240,7 @@ def cursor_to_left_side():
     else:
         sys.stdout.write('\x1b[G')
 def cursor_up(count=1):
-    if is_windows():
+    if is_windows:
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -248,7 +251,7 @@ def cursor_up(count=1):
     else:
         sys.stdout.write('\x1b['+str(count)+'A')
 def cursor_down(count=1):
-    if is_windows():
+    if is_windows:
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -259,7 +262,7 @@ def cursor_down(count=1):
     else:
         sys.stdout.write('\x1b['+str(count)+'B')
 def cursor_right(count=1):
-    if is_windows():
+    if is_windows:
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -270,7 +273,7 @@ def cursor_right(count=1):
     else:
         sys.stdout.write('\x1b['+str(count)+'C')
 def cursor_left(count=1):
-    if is_windows():
+    if is_windows:
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -281,13 +284,13 @@ def cursor_left(count=1):
     else:
         sys.stdout.write('\x1b['+str(count)+'D')
 def clear_line():
-    if is_windows():
+    if is_windows:
         cursor_to_left_side()
         fill_to_eol_with_bg_color()
     else:
         sys.stdout.write('\x1b[2K')
 def hide_cursor():
-    if is_windows():
+    if is_windows:
         blank_cursor = CONSOLE_CURSOR_INFO()
         blank_cursor.dwSize = 1
         blank_cursor.bVisible = 0
@@ -296,7 +299,7 @@ def hide_cursor():
     else:
         sys.stdout.write('\x1b[?25l')
 def show_cursor():
-    if is_windows():
+    if is_windows:
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.SetConsoleCursorInfo(stdout_handle, ctypes.byref(win_original_cursor_info))
     else:
@@ -305,7 +308,7 @@ def clear_screen():
     not_used_must_write_windows_version_so_crash_here_okay
     sys.stdout.write('\x1b[2J')
 def home_cursor():
-    if is_windows():
+    if is_windows:
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -321,13 +324,13 @@ last_bg_col = 999
 def rgb3_to_bgr3(col):
     return ((col >> 2) & 1) | (col & 2) | ((col << 2) & 4)
 def set_color(fg_col, bg_col):
-    if is_windows():
     global last_fg_col
     global last_bg_col
     if fg_col == last_fg_col and bg_col == last_bg_col:
         return
     last_fg_col = fg_col
     last_bg_col = bg_col
+    if is_windows:
         # convert from (rgb+2) to bgr
         fg_col = rgb3_to_bgr3(fg_col-2)
         bg_col = rgb3_to_bgr3(bg_col-2)
@@ -344,19 +347,16 @@ def set_color(fg_col, bg_col):
 def supports_unicode():
     return sys.stdout.encoding in ['UTF-8', 'UTF-16', 'UTF-32']
 
-is_windows_cached = None
-def is_windows():
-    global is_windows_cached
-    if is_windows_cached == None:
-        try:
-            import msvcrt
-            is_windows_cached = True
-        except ImportError:
-            is_windows_cached = False
-    return is_windows_cached
+def set_is_windows():
+    try:
+        import msvcrt
+        return True
+    except ImportError:
+        return False
+is_windows = set_is_windows()
 
 def getch_impl():
-    if is_windows():
+    if is_windows:
         stdin_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-10))
         one_char_buf = ctypes.c_uint32()
         chars_read = ctypes.c_uint32()
