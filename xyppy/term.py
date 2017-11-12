@@ -316,10 +316,18 @@ def home_cursor():
     else:
         sys.stdout.write('\x1b[H')
 
+last_fg_col = 999
+last_bg_col = 999
 def rgb3_to_bgr3(col):
     return ((col >> 2) & 1) | (col & 2) | ((col << 2) & 4)
 def set_color(fg_col, bg_col):
     if is_windows():
+    global last_fg_col
+    global last_bg_col
+    if fg_col == last_fg_col and bg_col == last_bg_col:
+        return
+    last_fg_col = fg_col
+    last_bg_col = bg_col
         # convert from (rgb+2) to bgr
         fg_col = rgb3_to_bgr3(fg_col-2)
         bg_col = rgb3_to_bgr3(bg_col-2)
@@ -327,12 +335,10 @@ def set_color(fg_col, bg_col):
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.SetConsoleTextAttribute(stdout_handle, col_attr)
     else:
-        # if not a tty, don't spam our debug stdout files with color changes
-        if sys.stdout.isatty():
-            color = str(fg_col + 28)
-            sys.stdout.write('\x1b['+color+'m')
-            color = str(bg_col + 38)
-            sys.stdout.write('\x1b['+color+'m')
+        color = str(fg_col + 28)
+        sys.stdout.write('\x1b['+color+'m')
+        color = str(bg_col + 38)
+        sys.stdout.write('\x1b['+color+'m')
 
 # TODO: any other encodings to check for?
 def supports_unicode():
