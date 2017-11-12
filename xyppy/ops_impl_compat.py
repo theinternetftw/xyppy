@@ -112,8 +112,7 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
     abbrevShift = 0
     current_10bit = 0
     mode = 'NONE'
-    for i in xrange(len(split_text)):
-        char = split_text[i]
+    for char in split_text:
         if abbrevShift > 0:
             table_addr = env.hdr.abbrev_base
             entry_addr = table_addr + 2*(32*(abbrevShift-1) + char)

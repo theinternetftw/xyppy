@@ -30,7 +30,7 @@ def get_var(env, var_num, pop_stack=True):
         err('illegal var num: '+str(var_num))
 
     if DBG:
-        warn('    get_var(', get_var_name(var_num), ', pop_stack =', pop_stack)
+        warn('    get_var(', get_var_name(var_num), ', pop_stack =', pop_stack, ')')
 
 def set_var(env, var_num, result, push_stack=True):
     result &= 0xffff
@@ -52,7 +52,7 @@ def set_var(env, var_num, result, push_stack=True):
         err('set_var: illegal var_num: '+str(var_num))
 
     if DBG:
-        warn('    set_var(', get_var_name(var_num), ',', result, ', push_stack =', push_stack)
+        warn('    set_var(', get_var_name(var_num), ',', result, ', push_stack =', push_stack, ')')
 
 def get_var_name(var_num):
     if var_num == 0:
@@ -110,8 +110,9 @@ def jz(env, opinfo):
 
 def je(env, opinfo):
     result = False
-    for i in xrange(1, len(opinfo.operands)):
-        if opinfo.operands[0] == opinfo.operands[i]:
+    first = opinfo.operands[0]
+    for op in opinfo.operands[1:]:
+        if first == op:
             result = True
             break
 
@@ -659,8 +660,7 @@ def call(env, opinfo):
 
     # args dropped if past len of locals arr
     num_args = min(len(opinfo.operands)-1, len(local_vars))
-    for i in xrange(num_args):
-        local_vars[i] = opinfo.operands[i+1]
+    local_vars[:num_args] = opinfo.operands[1:num_args+1]
 
     env.callstack.append(Frame(return_addr,
                                num_args,
