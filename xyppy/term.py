@@ -175,9 +175,7 @@ def scroll_down():
             src_rect.Left = 0
             src_rect.Bottom = cbuf.dwSize.Y-1
             src_rect.Right = cbuf.dwSize.X-1
-            dest = COORD()
-            dest.X = 0
-            dest.Y = 0
+            dest = COORD(0, 0)
             fill_char = CHAR_INFO()
             fill_char.Char.AsciiChar = ' '
             fill_char.Attributes = cbuf.wAttributes
@@ -197,8 +195,8 @@ def fill_to_eol_with_bg_color():
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
 
         cursor = cbuf.dwCursorPosition
-        # subtract one to avoid default windows scroll-on-last-col-write behavior
         distance = cbuf.srWindow.Right - cursor.X
+        # distance > 0 skips x == right to avoid default windows scroll-on-last-col-write behavior
         if distance > 0:
             cbuf = CONSOLE_SCREEN_BUFFER_INFO()
             stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
@@ -402,8 +400,8 @@ def peekch():
         return stored_chars[0]
     return ''
 
-def puts(c):
-    sys.stdout.write(c)
+def puts(s):
+    sys.stdout.write(s)
     sys.stdout.flush()
 
 def flush():
