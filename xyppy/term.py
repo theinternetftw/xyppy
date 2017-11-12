@@ -10,9 +10,6 @@ import time
 from collections import deque
 from threading import Thread
 
-# NOTE: ENABLE_VIRTUAL_TERMINAL_PROCESSING requires windows 10
-# TODO: use winapi to support older windows versions
-
 win_original_attributes = None
 win_original_cursor_info = None
 
