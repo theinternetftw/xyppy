@@ -25,9 +25,10 @@ More screens can be found on [their dedicated page.](https://github.com/theinter
 
 * Doesn't support mid-input interrupts
 * No character font
+* You can turn slow scroll mode off with --no-slow-scroll (you monster)
 * Not fast enough to play really unoptimized Inform 7 games (so far I've found 2 offenders)
 
 ### TODO:
 * More features, implement the last few bits of the spec
-* Config file/options: e.g. turn slow scroll mode off (you monster)
+* Config file, so you don't have to set an alias or keep passing args
 * Python 2/3 compat?

@@ -144,9 +144,11 @@ def set_standard_flags(env):
         env.mem[hdr.hdr_ext_tab_base + 4] = 0
 
 class Env:
-    def __init__(self, mem):
+    def __init__(self, mem, options):
         self.orig_mem = mem
         self.mem = array('B', map(ord, mem))
+
+        self.options = options
 
         self.hdr = Header(self)
         set_standard_flags(self)

@@ -154,8 +154,9 @@ class Screen(object):
 
     # TODO: fun but slow, make a config option
     def slow_scroll_effect(self):
-        if not term.is_windows(): # windows is slow enough, atm :/
-            self.flush()
+        if not self.env.options.no_slow_scroll:
+            if not term.is_windows(): # windows is slow enough, atm :/
+                self.flush()
 
     def new_line(self):
         env, win = self.env, self.env.current_window
