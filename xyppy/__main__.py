@@ -9,13 +9,10 @@ import term
 
 def main():
     if len(sys.argv) != 2:
-        prog_name = sys.argv[0]
-        if sys.argv[0].endswith('__main__.py'):
-            prog_name = '-m xyppy'
         print('usage examples:')
-        print('    python '+prog_name+' STORY_FILE.z5')
-        print('    python '+prog_name+' http://example.com/STORY_FILE.z5')
-        sys.exit()
+        print('    python '+sys.argv[0]+' STORY_FILE.z5')
+        print('    python '+sys.argv[0]+' http://example.com/STORY_FILE.z5')
+        sys.exit(1)
 
     url = sys.argv[1]
     if any(map(url.startswith, ['http://', 'https://', 'ftp://'])):
