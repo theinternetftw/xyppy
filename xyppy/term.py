@@ -147,7 +147,9 @@ class CHAR_INFO(ctypes.Structure):
                 ("Attributes", ctypes.c_uint16)]
 
 def get_size():
-    if is_windows():
+    if not sys.stdout.isatty():
+        return 80, 40
+    elif is_windows():
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
@@ -325,10 +327,12 @@ def set_color(fg_col, bg_col):
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.SetConsoleTextAttribute(stdout_handle, col_attr)
     else:
-        color = str(fg_col + 28)
-        sys.stdout.write('\x1b['+color+'m')
-        color = str(bg_col + 38)
-        sys.stdout.write('\x1b['+color+'m')
+        # if not a tty, don't spam our debug stdout files with color changes
+        if sys.stdout.isatty():
+            color = str(fg_col + 28)
+            sys.stdout.write('\x1b['+color+'m')
+            color = str(bg_col + 38)
+            sys.stdout.write('\x1b['+color+'m')
 
 # TODO: any other encodings to check for?
 def supports_unicode():
