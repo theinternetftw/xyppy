@@ -29,6 +29,9 @@ def get_var(env, var_num, pop_stack=True):
     else:
         err('illegal var num: '+str(var_num))
 
+    if DBG:
+        warn('    get_var(', get_var_name(var_num), ', pop_stack =', pop_stack)
+
 def set_var(env, var_num, result, push_stack=True):
     result &= 0xffff
 
@@ -47,6 +50,9 @@ def set_var(env, var_num, result, push_stack=True):
         env.write16(g_base + 2*g_idx, result)
     else:
         err('set_var: illegal var_num: '+str(var_num))
+
+    if DBG:
+        warn('    set_var(', get_var_name(var_num), ',', result, ', push_stack =', push_stack)
 
 def get_var_name(var_num):
     if var_num == 0:
@@ -192,18 +198,10 @@ def inc(env, opinfo):
     var_val = to_signed_word(get_var(env, var_num))
     set_var(env, var_num, var_val+1)
 
-    if DBG:
-        warn('    var', get_var_name(var_num))
-        warn('    new_val', to_signed_word(var_val))
-
 def dec(env, opinfo):
     var_num = opinfo.operands[0]
     var_val = to_signed_word(get_var(env, var_num))
     set_var(env, var_num, var_val-1)
-
-    if DBG:
-        warn('    var_num', var_num)
-        warn('    new_val', to_signed_word(var_val))
 
 def inc_chk(env, opinfo):
     var_loc = opinfo.operands[0]
@@ -216,10 +214,6 @@ def inc_chk(env, opinfo):
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
 
-    if DBG:
-        warn('    var_loc', get_var_name(var_loc))
-        warn('    var_val', var_val)
-
 def dec_chk(env, opinfo):
     var_loc = opinfo.operands[0]
     chk_val = to_signed_word(opinfo.operands[1])
@@ -230,10 +224,6 @@ def dec_chk(env, opinfo):
     result = var_val < chk_val
     if result == opinfo.branch_on:
         handle_branch(env, opinfo.branch_offset)
-
-    if DBG:
-        warn('    var_loc', get_var_name(var_loc))
-        warn('    var_val', var_val)
 
 def test(env, opinfo):
     bitmap = opinfo.operands[0]
@@ -622,8 +612,8 @@ def test_attr(env, opinfo):
         obj_addr = get_obj_addr(env, obj)
 
         attr_byte = attr // 8
-        shift_amt = 7-attr%8
-        attr_val = env.mem[obj_addr+attr_byte] >> shift_amt & 1
+        shift_amt = 7 - attr%8
+        attr_val = (env.mem[obj_addr+attr_byte] >> shift_amt) & 1
         result = attr_val == 1
     else:
         result = False
@@ -798,10 +788,6 @@ def pull(env, opinfo):
     result = frame.stack.pop()
     set_var(env, var, result, push_stack=False)
 
-    if DBG:
-        warn('    result', result)
-        warn('    dest', get_var_name(var))
-
 def buffer_mode(env, opinfo):
     env.screen.finish_wrapping()
 
@@ -844,9 +830,6 @@ def log_shift(env, opinfo):
         result = number << places
     set_var(env, opinfo.store_var, result)
 
-    if DBG:
-        warn('    result',result)
-
 def art_shift(env, opinfo):
     number = to_signed_word(opinfo.operands[0])
     places = to_signed_word(opinfo.operands[1])
@@ -855,9 +838,6 @@ def art_shift(env, opinfo):
     else:
         result = number << places
     set_var(env, opinfo.store_var, result)
-
-    if DBG:
-        warn('    result',result)
 
 def get_file_len(env):
     if env.hdr.version < 4:
@@ -934,7 +914,7 @@ def scan_table(env, opinfo):
 
     if DBG:
         warn('    found', found)
-        warn('    addr',addr)
+        warn('    addr', addr)
 
 # TODO: make sure this actually works
 def print_table(env, opinfo):
