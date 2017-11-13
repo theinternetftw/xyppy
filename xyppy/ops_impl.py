@@ -13,6 +13,9 @@ from ops_impl_compat import *
 import quetzal
 
 def get_var(env, var_num, pop_stack=True):
+    # if DBG:
+    #     warn('    get_var(', get_var_name(var_num), ', pop_stack =', pop_stack, ')')
+
     if var_num == 0:
         frame = env.callstack[-1]
         if pop_stack:
@@ -29,10 +32,11 @@ def get_var(env, var_num, pop_stack=True):
     else:
         err('illegal var num: '+str(var_num))
 
-    if DBG:
-        warn('    get_var(', get_var_name(var_num), ', pop_stack =', pop_stack, ')')
 
 def set_var(env, var_num, result, push_stack=True):
+    # if DBG:
+    #     warn('    set_var(', get_var_name(var_num), ',', result, ', push_stack =', push_stack, ')')
+
     result &= 0xffff
 
     if var_num == 0:
@@ -51,8 +55,6 @@ def set_var(env, var_num, result, push_stack=True):
     else:
         err('set_var: illegal var_num: '+str(var_num))
 
-    if DBG:
-        warn('    set_var(', get_var_name(var_num), ',', result, ', push_stack =', push_stack, ')')
 
 def get_var_name(var_num):
     if var_num == 0:
