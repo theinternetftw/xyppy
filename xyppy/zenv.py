@@ -292,5 +292,6 @@ def dbg_dump_dictionary(env):
         entry = [env.u16(entry_addr),
                  env.u16(entry_addr+2)]
         entry_unpacked = ops.unpack_string(env, entry, warn_unknown_char=False)
-        env.screen.write(repr(entry_unpacked) + '\n')
+        raw_hex = ' '.join(map(hex, entry))
+        env.screen.write(raw_hex + ' ' + repr(entry_unpacked) + '\n')
         env.screen.flush()

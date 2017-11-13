@@ -177,6 +177,62 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
 
     return ''.join(text)
 
+def make_dict_string(env, text):
+
+    if env.hdr.version >= 5 and env.hdr.alpha_tab_base:
+        base = env.hdr.alpha_tab_base
+        A0 = ''.join(map(chr, list(env.mem[base+0*26:base+1*26])))
+        A1 = ''.join(map(chr, list(env.mem[base+1*26:base+2*26])))
+        A2 = ''.join(map(chr, list(env.mem[base+2*26:base+3*26])))
+    else:
+        A0 = Default_A0
+        A1 = Default_A1
+        A2 = Default_A2
+
+    if env.hdr.version == 1:
+        A2 = Default_A2_for_z1
+
+    # TODO: S 3.7.1, which expects 4,5 for len-2 shift
+    # seqs (not full lock) and works this way only for
+    # dict lookups? Still unclear to me, can find no
+    # examples of this.
+
+    if env.hdr.version <= 3:
+        KEY_LEN = 6
+    else:
+        KEY_LEN = 9
+    text = text[:KEY_LEN] # will truncate again later, but shortens the loop
+
+    ztext = []
+    for char in text:
+        if char in A0:
+            ztext.append(A0.index(char)+6)
+        elif char in A1:
+            # only can be custom alphabets, no version 1/2 code needed
+            ztext.append(4)
+            ztext.append(A1.index(char)+6)
+        elif char in A2 and A2.index(char) != 0 and (env.hdr.version == 1 or A2.index(char) != 1):
+            if env.hdr.version <= 2:
+                ztext.append(3)
+            else:
+                ztext.append(5)
+            ztext.append(A2.index(char)+6)
+        else:
+            # 10-bit ZSCII (only 8 bits ever used)
+            ztext.append(char >> 5) # top 3 bits
+            ztext.append(char & 0x1f) # bottom 5 bits
+
+    ztext = ztext[:KEY_LEN] # truncating multi-byte chars here
+    while len(ztext) < KEY_LEN:
+        ztext.append(5)
+
+    packed_text = []
+    for i in xrange(0, len(ztext), 3):
+        c, c1, c2 = ztext[i:i+3]
+        packed_text.append((c << 10) | (c1 << 5) | c2)
+    packed_text[-1] |= 0x8000
+    return packed_text
+
 def unpack_addr(addr, version, offset=0):
     if version < 4:
         return addr * 2
@@ -522,21 +578,10 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
     word_locs = word_locs[:parse_buf_len]
     word_lens = word_lens[:parse_buf_len]
 
-    # HEY THIS IS SUB-OPTIMAL!
-    # Actual system should be:
-    # 1) Convert words to packed Z-Chars
-    # 2) Truncate at correct # bytes
-    # 3) Do numerical compare against dict
-    #    * this can be a binary search for read() opcodes
-    #    * but dictionaries for tokenize() can be unsorted
-    #       * so maybe just do regular compare always
-    #          * if speed is never an issue these days
-    #
-    # 1) and 2) are also necessary for correctness.
-    # Dict entries can have half a byte of a 2-byte
-    # 10-bit ZSCII char that was truncated in the
-    # entry creation process. That truncation should
-    # be recreated on user input to match those chars.
+    # NOTE: This could be a binary search for read() opcodes,
+    # but dictionaries for tokenize() can be unsorted. So maybe
+    # just always do a linear search if speed is never an issue
+    # these days?
 
     dict_base = env.hdr.dict_base
     num_word_seps = env.mem[dict_base]
@@ -550,11 +595,14 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
     env.write8(parse_buffer+1, len(words))
     parse_ptr = parse_buffer+2
     for word,wloc,wlen in zip(words, word_locs, word_lens):
+
         wordstr = ''.join(map(chr, word))
+        packed_word = make_dict_string(env, wordstr)
+
         dict_addr = 0
         for i in xrange(num_entries):
             entry_addr = entries_start+i*entry_length
-            if match_dict_entry(env, entry_addr, wordstr):
+            if match_dict_entry(env, entry_addr, packed_word):
                 dict_addr = entry_addr
                 break
         if dict_addr != 0 or skip_unknown_words == 0:
@@ -563,7 +611,7 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
             env.write8(parse_ptr+3, wloc)
         parse_ptr += 4
 
-def match_dict_entry(env, entry_addr, wordstr):
+def match_dict_entry(env, entry_addr, packed_word):
     if env.hdr.version <= 3:
         entry = [env.u16(entry_addr),
                  env.u16(entry_addr+2)]
@@ -571,8 +619,7 @@ def match_dict_entry(env, entry_addr, wordstr):
         entry = [env.u16(entry_addr),
                  env.u16(entry_addr+2),
                  env.u16(entry_addr+4)]
-    entry_unpacked = unpack_string(env, entry, warn_unknown_char=False)
-    return wordstr == entry_unpacked
+    return packed_word == entry
 
 # not based on z-version, but here for convenience
 def read_packed_string(env, addr):
