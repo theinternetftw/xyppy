@@ -89,6 +89,10 @@ def init(env):
 
 def reset_color():
     global win_original_attributes
+    global last_fg_col
+    global last_bg_col
+    last_fg_col = 999 # force explicit set next color use
+    last_bg_col = 999 # force explicit set next color use
     if is_windows:
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.SetConsoleTextAttribute(stdout_handle, win_original_attributes)
