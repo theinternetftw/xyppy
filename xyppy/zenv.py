@@ -280,3 +280,17 @@ def dbg_decode_result(env, opname, store_var):
         return to_signed_word(var)
     return var
 
+def dbg_dump_dictionary(env):
+    dict_base = env.hdr.dict_base
+    num_word_seps = env.mem[dict_base]
+    entry_length = env.mem[dict_base+1+num_word_seps]
+    num_entries = env.u16(dict_base+1+num_word_seps+1)
+    entries_start = dict_base+1+num_word_seps+1+2
+    env.screen.write('\n')
+    for i in xrange(num_entries):
+        entry_addr = entries_start+i*entry_length
+        entry = [env.u16(entry_addr),
+                 env.u16(entry_addr+2)]
+        entry_unpacked = ops.unpack_string(env, entry, warn_unknown_char=False)
+        env.screen.write(repr(entry_unpacked) + '\n')
+        env.screen.flush()

@@ -38,7 +38,7 @@ def main():
         mem = blorb.get_code(mem)
     env = Env(mem, args)
 
-    if env.hdr.version not in [3,4,5,7,8]:
+    if env.hdr.version not in [1,2,3,4,5,7,8]:
         err('unsupported z-machine version: '+str(env.hdr.version))
 
     term.init(env)

@@ -78,6 +78,8 @@ Default_A0 = 'abcdefghijklmnopqrstuvwxyz'
 Default_A1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 Default_A2 = ' \n0123456789.,!?_#\'"/\-:()'
 
+Default_A2_for_z1 = ' 0123456789.,!?_#\'"/\<-:()'
+
 #needs_compat_pass (i think only for v1/v2)
 def unpack_string(env, packed_text, warn_unknown_char=True):
 
@@ -87,8 +89,6 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
                        word >> 5 & 0x1f,
                        word & 0x1f]
 
-    #check the differences between v1/v2 and v3 here
-    #going w/ v3 compat only atm
     if env.hdr.version >= 5 and env.hdr.alpha_tab_base:
         base = env.hdr.alpha_tab_base
         A0 = ''.join(map(chr, list(env.mem[base+0*26:base+1*26])))
@@ -99,16 +99,22 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
         A1 = Default_A1
         A2 = Default_A2
 
-    if env.hdr.version in [1,2]:
-        # TODO: actually use this, also see 3.7.1 for the other V1,V2 niggle
-        # aside from string unpacking
-        shiftTable = {
-                2: {A0:A1, A1:A2, A2:A0},
-                3: {A0:A2, A1:A0, A2:A1},
-        }
+    if env.hdr.version == 1:
+        A2 = Default_A2_for_z1
+
+    # TODO: also see 3.7.1 for more V1,V2 compat
+    shiftTable = {
+            2: {A0:A1, A1:A2, A2:A0},
+            3: {A0:A2, A1:A0, A2:A1},
+
+            4: {A0:A1, A1:A2, A2:A0},
+            5: {A0:A2, A1:A0, A2:A1},
+    }
 
     text = []
     currentAlphabet = A0
+    lastAlphabet = A0
+    tempShift = 0
     abbrevShift = 0
     current_10bit = 0
     mode = 'NONE'
@@ -129,23 +135,46 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
             text += zscii_to_ascii(env, [current_10bit], warn_unknown_char)
         elif char == 0:
             text.append(' ')
-            currentAlphabet = A0
-        elif char == 4:
-            currentAlphabet = A1
-        elif char == 5:
-            currentAlphabet = A2
         elif char == 6 and currentAlphabet == A2: # override any custom alpha with escape seq start
             mode = '10BIT_HIGH'
-            currentAlphabet = A0
-        elif char == 7 and currentAlphabet == A2: # override any custom alpha with newline
+        elif env.hdr.version > 1 and char == 7 and currentAlphabet == A2: # override any custom alpha with newline
             text.append('\n')
-            currentAlphabet = A0
-        elif char in [1,2,3]:
-            abbrevShift = char
-            currentAlphabet = A0
+        elif env.hdr.version < 3:
+            if char == 1:
+                if env.hdr.version == 1:
+                    text.append('\n')
+                else:
+                    abbrevShift = char
+            elif char in [2,3,4,5]:
+                lastAlphabet = currentAlphabet
+                currentAlphabet = shiftTable[char][currentAlphabet]
+                if char in [2,3]:
+                    tempShift = 1
+                else:
+                    tempShift = 0 # don't unshift when shift locking, even if preceded by tempShift
+            else:
+                text.append(currentAlphabet[char-6])
         else:
-            text.append(currentAlphabet[char-6])
-            currentAlphabet = A0
+            if char in [1,2,3]:
+                abbrevShift = char
+            elif char == 4:
+                currentAlphabet = A1
+                tempShift = 1
+            elif char == 5:
+                currentAlphabet = A2
+                tempShift = 1
+            else:
+                text.append(currentAlphabet[char-6])
+
+        if tempShift == 2:
+            if env.hdr.version < 3:
+                currentAlphabet = lastAlphabet
+            else:
+                currentAlphabet = A0
+            tempShift = 0
+        elif tempShift > 0:
+            tempShift += 1
+
     return ''.join(text)
 
 def unpack_addr(addr, version, offset=0):
