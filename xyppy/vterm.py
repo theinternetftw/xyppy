@@ -1,6 +1,8 @@
 import term
 import random
 
+from debug import warn
+
 # warning: hack filled nonsense follows, since I'm
 # converting a system that expects full control over
 # the screen to something that prints linearly in
@@ -46,7 +48,7 @@ class Screen(object):
     def __init__(self, env):
         self.env = env
         self.textBuf = self.make_screen_buf()
-        self.seenBuf = {line: False for line in self.textBuf}
+        self.seenBuf = {line: True for line in self.textBuf}
         self.wrapBuf = []
 
     def make_screen_buf(self):
