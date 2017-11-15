@@ -218,8 +218,8 @@ def make_dict_string(env, text):
             ztext.append(A2.index(char)+6)
         else:
             # 10-bit ZSCII (only 8 bits ever used)
-            ztext.append(char >> 5) # top 3 bits
-            ztext.append(char & 0x1f) # bottom 5 bits
+            ztext.append(ord(char) >> 5) # top 3 bits
+            ztext.append(ord(char) & 0x1f) # bottom 5 bits
 
     ztext = ztext[:KEY_LEN] # truncating multi-byte chars here
     while len(ztext) < KEY_LEN:
