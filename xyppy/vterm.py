@@ -281,103 +281,120 @@ class Screen(object):
         col = max(0, col-len(prefilled)) # TODO: prefilled is a seldom-used old and crusty feature, but make unicode safe
         env.cursor[env.current_window] = row, col
 
-        edit_col = col + len(prefilled)
-        chars = [c for c in prefilled]
+        class CursorLine(object):
+            def __init__(self, cursor_start, chars):
+                self.cursor = cursor_start
+                self.chars = chars
 
-        def refresh_rest_of_line(is_delete=False):
-            to_backup = 0
-            for c in chars[edit_col-col:]:
+            def backspace(self):
+                if self.cursor == 0:
+                    return
+                self.left()
+                self.delete_char()
+
+            def delete_char(self):
+                del self.chars[self.cursor : self.cursor+1]
+                self.refresh_rest_of_line(is_delete=True)
+
+            def refresh_rest_of_line(self, is_delete=False):
+                rest = self.chars[self.cursor:]
+                term.puts(''.join(rest))
+                to_back_up = len(rest)
+                if is_delete:
+                    term.puts(' ')
+                    to_back_up += 1
+                if to_back_up:
+                    term.cursor_left(to_back_up)
+
+            def left(self):
+                if self.cursor > 0:
+                    self.cursor -= 1
+                    term.cursor_left()
+
+            def right(self):
+                if self.cursor < len(self.chars):
+                    self.cursor += 1
+                    term.cursor_right()
+
+            def home(self):
+                while self.cursor > 0:
+                    self.left()
+
+            def end(self):
+                while self.cursor != len(self.chars):
+                    self.right()
+
+            def kill_left(self):
+                while self.chars[:self.cursor]:
+                    self.backspace()
+
+            def kill_right(self):
+                while self.chars[self.cursor:]:
+                    self.delete_char()
+
+            def insert(self, c):
+                self.chars.insert(self.cursor, c)
                 term.puts(c)
-                to_backup += 1
-            if is_delete:
-                term.puts(' ')
-                to_backup += 1
-            if to_backup:
-                term.cursor_left(to_backup)
+                self.cursor += 1
+                self.refresh_rest_of_line()
 
-        def backspace_char():
-            term.cursor_left()
-            term.puts(' ')
-            term.cursor_left()
-            del chars[edit_col-col-1 : edit_col-col]
+        cursor_start = len(prefilled)
+        cursor_line = CursorLine(cursor_start, [c for c in prefilled])
 
         max_input_len = 120 # 120 char limit seen on gargoyle
         c = term.getch_or_esc_seq()
         while c != '\n' and c != '\r':
             if c == '\b' or c == '\x7f':
-                if edit_col > col:
-                    backspace_char()
-                    edit_col -= 1
-                    refresh_rest_of_line(is_delete=True)
+                cursor_line.backspace()
 
-            # normal keys and a bit of readline flavor
+            # normal edit keys and a bit of readline flavor
 
             # left arrow or C-b
             elif c == '\x1b[D' or c == '\x02':
-                if edit_col > col:
-                    edit_col -= 1
-                    term.cursor_left()
+                cursor_line.left()
+
             # right arrow or C-f
             elif c == '\x1b[C' or c == '\x06':
-                if edit_col-col < len(chars):
-                    edit_col += 1
-                    term.cursor_right()
+                cursor_line.right()
 
             # home or C-a
             elif c == '\x1b[H' or c == '\x01':
-                while edit_col != col:
-                    edit_col -= 1
-                    term.cursor_left()
-            # end or C-a
+                cursor_line.home()
+
+            # end or C-e
             elif c == '\x1b[F' or c == '\x05':
-                while edit_col-col != len(chars):
-                    edit_col += 1
-                    term.cursor_right()
+                cursor_line.end()
+
             # delete or C-d
             elif c == '\x1b[3~' or c == '\x04':
-                del chars[edit_col-col : edit_col-col+1]
-                refresh_rest_of_line(is_delete=True)
-                if edit_col-col > len(chars):
-                    edit_col -= 1
+                cursor_line.delete_char()
 
             # C-u, kill left of cursor
             elif c == '\x15':
-                while chars[:edit_col-col]:
-                    backspace_char()
-                    edit_col -= 1
-                    refresh_rest_of_line(is_delete=True)
+                cursor_line.kill_left()
 
             # C-u, kill right of cursor
             elif c == '\x0b':
-                while chars[edit_col-col:]:
-                    del chars[edit_col-col : edit_col-col+1]
-                    refresh_rest_of_line(is_delete=True)
-                    if edit_col-col > len(chars):
-                        edit_col -= 1
+                cursor_line.kill_right()
 
             else:
-                if is_valid_inline_char(c) and len(chars) < max_input_len:
+                if is_valid_inline_char(c) and len(cursor_line.chars) < max_input_len:
                     if c == '\t':
-                        if len(chars) + 4 <= max_input_len:
+                        if len(cursor_line.chars) + 4 <= max_input_len:
                             for i in xrange(4):
-                                chars.insert(edit_col-col, ' ')
-                                term.puts(' ')
-                                edit_col += 1
+                                cursor_line.insert(' ')
                     else:
-                        chars.insert(edit_col-col, c)
-                        term.puts(c)
-                        edit_col += 1
-                    refresh_rest_of_line()
+                        cursor_line.insert(c)
 
             c = term.getch_or_esc_seq()
 
         term.hide_cursor()
         term.flush()
-        for c in chars:
+        for c in cursor_line.chars:
             self.write_unwrapped([ScreenChar(c, env.fg_color, env.bg_color, env.text_style)])
         self.new_line_via_spaces(env.fg_color, env.bg_color, env.text_style)
         term.home_cursor()
-        return ''.join(chars)
+        return ''.join(cursor_line.chars)
 
     def first_draw(self):
         env = self.env
