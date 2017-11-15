@@ -98,7 +98,7 @@ class Screen(object):
         if self.haveNotScrolled and line_empty(old_line):
             return
 
-        if not self.seenBuf[old_line]:
+        if not self.seenBuf[old_line] and not line_empty(old_line):
             self.pause_scroll_for_user_input()
 
         term.home_cursor()
