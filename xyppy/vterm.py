@@ -285,27 +285,27 @@ class Screen(object):
         env.cursor[env.current_window] = row, col
 
         edit_col = col + len(prefilled)
-        text = prefilled
+        chars = [c for c in prefilled]
 
         max_input_len = 120 # 120 char limit seen on gargoyle
         c = term.getch()
         while c != '\n' and c != '\r':
             if c == '\b' or ord(c) == 127:
-                if text:
+                if chars:
                     # tab normally not supported on z machines, but it being
                     # missing feels weird and restrictive...
                     # (even if i'm just going to replace the char later...)
-                    if text[-1] == '\t':
+                    if chars[-1] == '\t':
                         term.cursor_left(4)
                     else:
                         term.cursor_left()
                         term.puts(' ')
                         term.cursor_left()
-                    text = text[:-1]
+                    chars.pop()
                     edit_col -= 1
             else:
-                if is_valid_inline_char(c) and len(text) < max_input_len:
-                    text += c
+                if is_valid_inline_char(c) and len(chars) < max_input_len:
+                    chars.append(c)
                     if c == '\t':
                         term.puts('    ')
                     else:
@@ -314,11 +314,11 @@ class Screen(object):
             c = term.getch()
         term.hide_cursor()
         term.flush()
-        for t in text:
-            self.write_unwrapped([ScreenChar(t, env.fg_color, env.bg_color, env.text_style)])
+        for c in chars:
+            self.write_unwrapped([ScreenChar(c, env.fg_color, env.bg_color, env.text_style)])
         self.new_line_via_spaces(env.fg_color, env.bg_color, env.text_style)
         term.home_cursor()
-        return text
+        return ''.join(chars)
 
     def first_draw(self):
         env = self.env
