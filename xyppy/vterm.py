@@ -50,6 +50,7 @@ class Screen(object):
         self.textBuf = self.make_screen_buf()
         self.seenBuf = {line: True for line in self.textBuf}
         self.wrapBuf = []
+        self.haveNotScrolled = True
 
     def make_screen_buf(self):
         return [self.make_screen_line() for i in xrange(self.env.hdr.screen_height_units)]
@@ -93,10 +94,11 @@ class Screen(object):
         env = self.env
         old_line = self.textBuf[env.top_window_height]
 
-        # line_empty here as opposed to buf_empty in scroll because
-        # theatrical blank lines are very unlikely to factor in to
-        # showing what is almost certainly a status bar window
-        if not self.seenBuf[old_line] and not line_empty(old_line):
+        # avoid some moderately rare shifting text glitches (when possible)
+        if self.haveNotScrolled and line_empty(old_line):
+            return
+
+        if not self.seenBuf[old_line]:
             self.pause_scroll_for_user_input()
 
         term.home_cursor()
@@ -106,6 +108,8 @@ class Screen(object):
         new_line = self.make_screen_line()
         self.textBuf[env.top_window_height] = new_line
         self.seenBuf[new_line] = False
+
+        self.haveNotScrolled = False
 
     def scroll(self, count_lines=True):
         env = self.env
@@ -123,6 +127,8 @@ class Screen(object):
         new_line = self.make_screen_line()
         self.textBuf.append(new_line)
         self.seenBuf[new_line] = False
+
+        self.haveNotScrolled = False
 
         self.slow_scroll_effect()
 
