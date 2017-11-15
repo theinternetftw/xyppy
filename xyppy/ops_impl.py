@@ -704,7 +704,8 @@ def handle_read(env, text_buffer, parse_buffer, time=0, routine=0):
         if DBG:
             err('interrupts requested but not impl\'d yet!')
 
-    user_input = ascii_to_zscii(env.screen.get_line_of_input().lower())
+    prefilled = get_text_buffer_as_str(env, text_buffer)
+    user_input = ascii_to_zscii(env.screen.get_line_of_input(prompt='', prefilled=prefilled).lower())
 
     fill_text_buffer(env, user_input, text_buffer)
 

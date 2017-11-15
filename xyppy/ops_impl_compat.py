@@ -102,7 +102,6 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
     if env.hdr.version == 1:
         A2 = Default_A2_for_z1
 
-    # TODO: also see 3.7.1 for more V1,V2 compat
     shiftTable = {
             2: {A0:A1, A1:A2, A2:A0},
             3: {A0:A2, A1:A0, A2:A1},
@@ -464,6 +463,23 @@ def parse_call_header(env, call_addr):
 
     return locals, code_ptr
 
+def get_text_buffer_as_str(env, text_buffer):
+
+    text_buf_len = env.mem[text_buffer]
+    if text_buf_len < 2:
+        err('read error: malformed text buffer')
+
+    text_buf_ptr = text_buffer + 1
+
+    # does input exist?
+    if env.hdr.version >= 5 and env.mem[text_buf_ptr]:
+        input_len = env.mem[text_buf_ptr]
+        text_buf_ptr += 1
+        for i in xrange(input_len):
+            chars.append(env.mem[text_buf_ptr+i])
+        return ''.join(map(chr, chars))
+    return ''
+
 def fill_text_buffer(env, user_input, text_buffer):
 
     text_buf_len = env.mem[text_buffer]
@@ -472,25 +488,24 @@ def fill_text_buffer(env, user_input, text_buffer):
 
     text_buf_ptr = text_buffer + 1
 
+    # TODO: make sure I'm interpreting this right.
+    # Finding in test suites that you should be able
+    # to edit the prefilled text, despite spec seeming
+    # to say that any new input goes after prefilled
+    # input. Maybe that directive includes ^H's?
     if env.hdr.version >= 5:
-        # input may already exist, may have to append to it
-        if env.mem[text_buf_ptr]:
-            text_buf_ptr += env.mem[text_buf_ptr]+1
-        else:
-            text_buf_ptr += 1
+        text_buf_ptr += 1
 
-    i = 0
     max_len = text_buf_len-(text_buf_ptr-text_buffer)
-    while i < min(len(user_input), max_len):
-        env.write8(text_buf_ptr + i, user_input[i])
-        i += 1
+    text_len = min(len(user_input), max_len)
+    for i in xrange(text_len):
+        env.write8(text_buf_ptr, user_input[i])
+        text_buf_ptr += 1
 
     if env.hdr.version >= 5:
-        env.write8(text_buffer + 1, (text_buf_ptr+i)-text_buffer-2)
+        env.write8(text_buffer + 1, text_buf_ptr-text_buffer-2)
     else:
-        # the below is why I can't use a python for loop
-        # (it wouldn't set i properly on 0-char input)
-        env.write8(text_buf_ptr + i, 0)
+        env.write8(text_buf_ptr, 0)
 
 def get_used_tbuf_len(env, text_buffer):
     if env.hdr.version >= 5:

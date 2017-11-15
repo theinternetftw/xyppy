@@ -257,7 +257,7 @@ class Screen(object):
                 term.fill_to_eol_with_bg_color()
         term.flush()
 
-    def get_line_of_input(self, prompt=''):
+    def get_line_of_input(self, prompt='', prefilled=''):
         env = self.env
 
         for c in prompt:
@@ -265,8 +265,9 @@ class Screen(object):
         self.flush()
         self.update_seen_lines()
 
-        term.home_cursor()
         row, col = env.cursor[env.current_window]
+
+        term.home_cursor()
         term.cursor_down(row)
         term.cursor_right(col)
         term.set_color(env.fg_color, env.bg_color)
@@ -274,13 +275,17 @@ class Screen(object):
             term.fill_to_eol_with_bg_color()
         term.show_cursor()
 
-        text = ''
-        edit_col = col
+        col = max(0, col-len(prefilled)) # TODO: prefilled is a seldom-used old and crusty feature, but make unicode safe
+        env.cursor[env.current_window] = row, col
+
+        edit_col = col + len(prefilled)
+        text = prefilled
+
         max_input_len = 120 # 120 char limit seen on gargoyle
         c = term.getch()
         while c != '\n' and c != '\r':
             if c == '\b' or ord(c) == 127:
-                if edit_col > col:
+                if text:
                     # tab normally not supported on z machines, but it being
                     # missing feels weird and restrictive...
                     # (even if i'm just going to replace the char later...)
