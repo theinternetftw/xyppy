@@ -496,8 +496,7 @@ def get_text_buffer_as_str(env, text_buffer):
     if env.hdr.version >= 5 and env.mem[text_buf_ptr]:
         input_len = env.mem[text_buf_ptr]
         text_buf_ptr += 1
-        for i in xrange(input_len):
-            chars.append(env.mem[text_buf_ptr+i])
+        chars = env.mem[text_buf_ptr:text_buf_ptr+input_len]
         return ''.join(map(chr, chars))
     return ''
 
