@@ -81,7 +81,7 @@ Default_A2 = ' \n0123456789.,!?_#\'"/\-:()'
 Default_A2_for_z1 = ' 0123456789.,!?_#\'"/\<-:()'
 
 #needs_compat_pass (i think only for v1/v2)
-def unpack_string(env, packed_text, warn_unknown_char=True):
+def unpack_string(env, packed_text):
 
     split_text = []
     for word in packed_text:
@@ -131,7 +131,7 @@ def unpack_string(env, packed_text, warn_unknown_char=True):
         elif mode == '10BIT_LOW':
             mode = 'NONE'
             current_10bit |= char
-            text += zscii_to_ascii(env, [current_10bit], warn_unknown_char)
+            text += zscii_to_ascii(env, [current_10bit])
         elif char == 0:
             text.append(' ')
         elif char == 6 and currentAlphabet == A2: # override any custom alpha with escape seq start
@@ -318,7 +318,7 @@ build_default_unicode_tables(
 
 #std: 3.8
 #needs_compat_pass
-def zscii_to_ascii(env, clist, warn_unknown_char=True):
+def zscii_to_ascii(env, clist):
     result = []
     for c in clist:
         if c == 0:
@@ -347,28 +347,49 @@ def zscii_to_ascii(env, clist, warn_unknown_char=True):
             pass
     return ''.join(result)
 
-#std: 3.8
-#needs_compat_pass
+# std: 3.8
 def ascii_to_zscii(string):
     result = []
-    for c in string:
+    i = 0
+    while i < len(string):
+        c = string[i]
         if c == '\n':
             result.append(ord('\r'))
-        # NOTE: gargoyle just ignores the tab key,
-        # S 3.8.2.3 says output only. But I'd like
-        # to keep readline enabled on linux, so, for
-        # the moment, I make this compromise.
+        # NOTE: gargoyle just ignores the tab key, S 3.8.2.3 says
+        # output only. But since I want to keep expected tab behavior,
+        # I make this compromise.
         elif c == '\t':
             result.append(ord(' '))
-        elif c in ('\r','\b','\x1b') or (ord(c) > 31 and ord(c) < 127):
+        elif c in ('\r','\b') or (len(c) == 1 and ord(c) > 31 and ord(c) < 127):
             result.append(ord(c))
             # TODO (?): unicode for input (translate codes to zscii using the unicode table(s))
-            # TODO: 3.8.4 (arrow keys, function keys, keypad
+            # TODO: keypad digits
+        elif c == '\x1b':
+            esc_key_tbl = {
+                # arrow keys
+                '[A': 129, '[B': 130, '[C': 132, '[D':131,
+                # fkeys
+                'OP': 133, 'OQ': 134, 'OR': 135, 'OS': 136, '[15~': 137,
+                '[17~': 138, '[18~': 139, '[19~' :140, '[20~': 141,
+                '[21~': 142, '[23~': 143, '[24~': 144,
+            }
+            found = False
+            next_few = string[i+1:i+5]
+            for seq in esc_key_tbl:
+                if next_few.startswith(seq):
+                    result.append(esc_key_tbl[seq])
+                    i += len(seq)
+                    found = True
+                    break
+            if not found:
+                result.append(ord(c))
         else:
-           warn('this ascii char not yet implemented in zscii: '+str(c)+' / '+str(ord(c)))
-           warn('HIT ENTER TO CONTINUE')
-           raw_input()
-           result.append(ord('?'))
+            if DBG:
+                term.puts('\nthis ascii char not yet implemented in zscii: '+str(c)+' / '+str(ord(c)) + '\n')
+                term.puts('\nHIT ENTER TO CONTINUE\n')
+                term.getch_or_esc_seq()
+            result.append(ord('?'))
+        i += 1
     return result
 
 # returns the first sizenum_ptr

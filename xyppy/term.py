@@ -360,11 +360,14 @@ def set_is_windows():
 is_windows = set_is_windows()
 
 def getch_impl():
+    # TODO: This windows impl keeps pipes/redirects from working. Need ReadFile for that,
+    # with more complicated handling (personally, I'm just going to keep using unix/cygwin
+    # for pipe-y debug stuff...)
+    # TODO: Windows escape seqs via ReadConsoleInput, convert to VT100 seqs for more commonality.
     if is_windows:
         stdin_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-10))
         one_char_buf = ctypes.c_uint32()
         chars_read = ctypes.c_uint32()
-        # use ReadConsole to get the VT100 keys our console mode gives us
         # NOTE: W version of this function == ERROR_NOACCESS after text color set in photopia!?
         result = ctypes.windll.kernel32.ReadConsoleA(stdin_handle,
                                                      ctypes.byref(one_char_buf),
@@ -395,19 +398,58 @@ def start_char_loop_thread():
     t.daemon = True
     t.start()
 
+used_esc_char_list = [
+    # arrow keys
+    '[A', '[B', '[C', '[D',
+    # fkeys
+    'OP', 'OQ', 'OR', 'OS', '[15~', '[17~',
+    '[18~', '[19~', '[20~', '[21~', '[23~', '[24~',
+]
+non_zscii_esc_char_list = [
+    # home/end
+    '[H', '[F',
+    # ins/del, pgup/pgdn, alt home/end
+    '[2~', '[3~', '[5~', '[6~', '[1~', '[4~',
+]
+esc_char_list = used_esc_char_list + non_zscii_esc_char_list
+def could_be_escape(seq):
+    return any(x.startswith(seq) for x in esc_char_list)
+def is_zscii_special_key(seq):
+    return seq[0] == '\x1b' and seq[1:] in used_esc_char_list
+
 # only run these on the main thread
-def getch():
+def getch_or_esc_seq():
     global stored_chars
     sys.stdout.flush()
     while len(stored_chars) == 0:
         time.sleep(0.005)
+
     # safe, b/c only one thread pops
     c = stored_chars.popleft()
+
     if ord(c) == 3:
         # 0x03 == ctrl-c is pressed on windows. checked here
         # to keep the raise on the main thread (avoid hang).
         raise KeyboardInterrupt
+
+    if c == '\x1b':
+        time.sleep(0.005)
+        if peekch():
+            seq = ''
+            while peekch() and could_be_escape(seq + peekch()):
+                seq += stored_chars.popleft()
+                time.sleep(0.005)
+            if seq not in esc_char_list:
+                for s in seq[::-1]:
+                    # hurray for threadsafe queues!
+                    # preserves order because only this
+                    # thread touches the lefthand side.
+                    stored_chars.appendleft(s)
+            else:
+                c += seq
+
     return c
+
 def peekch():
     if len(stored_chars):
         # safe, b/c only one thread peeks/pops

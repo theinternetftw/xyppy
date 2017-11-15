@@ -136,12 +136,9 @@ class Screen(object):
         self.seenBuf = {line: True for line in self.textBuf}
 
     def pause_scroll_for_user_input(self):
-        # TODO: save last paused line, check to
-        # see if it's still in the buffer next
-        # pause or next input()/getch(), then use
-        # that info to draw the plus or some other
-        # mark to show you where the last scroll pause
-        # was to help your eye track the scroll
+        # TODO: mark last paused line, set it up so such lines get
+        # marked with a plus when still in the buffer, to help your
+        # eye track the scroll.
         self.flush()
         if not buf_empty(self.textBuf):
             term_width, term_height = term.get_size()
@@ -151,7 +148,7 @@ class Screen(object):
                 # we reserve a one unit right margin for this status char
                 term.cursor_right(self.env.hdr.screen_width_units)
                 term.write_char_with_color('+', self.env.fg_color, self.env.bg_color)
-            term.getch()
+            term.getch_or_esc_seq()
         self.update_seen_lines()
 
     def overwrite_line_with(self, new_line):
@@ -288,9 +285,9 @@ class Screen(object):
         chars = [c for c in prefilled]
 
         max_input_len = 120 # 120 char limit seen on gargoyle
-        c = term.getch()
+        c = term.getch_or_esc_seq()
         while c != '\n' and c != '\r':
-            if c == '\b' or ord(c) == 127:
+            if c == '\b' or c == '\x7f':
                 if chars:
                     # tab normally not supported on z machines, but it being
                     # missing feels weird and restrictive...
@@ -311,7 +308,7 @@ class Screen(object):
                     else:
                         term.puts(c)
                     edit_col += 1
-            c = term.getch()
+            c = term.getch_or_esc_seq()
         term.hide_cursor()
         term.flush()
         for c in chars:
@@ -327,13 +324,12 @@ class Screen(object):
         term.fill_to_eol_with_bg_color()
         term.home_cursor()
 
-    def getch(self):
+    def getch_or_esc_seq(self):
         self.flush()
-        c = term.getch()
+        c = term.getch_or_esc_seq()
         self.update_seen_lines()
-        if ord(c) == 127: #delete should be backspace
+        if c == '\x7f': #delete should be backspace
             c = '\b'
-        # TODO: Arrow keys, function keys, keypad?
         if not is_valid_getch_char(c):
             return '?'
         return c
@@ -343,7 +339,7 @@ class Screen(object):
     def msg(self, text):
         self.write(text)
         self.flush()
-        term.getch()
+        term.getch_or_esc_seq()
 
 def buf_empty(buf):
     for line in buf:
@@ -359,8 +355,12 @@ def line_empty(line):
 
 def is_valid_getch_char(c):
     # TODO: unicode input?
-    return c in ['\n', '\t', '\r', '\b', '\x1b'] or (ord(c) > 31 and ord(c) < 127)
+    return (
+        c in ['\n', '\t', '\r', '\b', '\x1b'] or
+        term.is_zscii_special_key(c) or
+        (len(c) == 1 and ord(c) > 31 and ord(c) < 127)
+    )
 
 def is_valid_inline_char(c):
     # TODO: unicode input?
-    return c in ['\n', '\t', '\r', '\b'] or (ord(c) > 31 and ord(c) < 127)
+    return c in ['\n', '\t', '\r', '\b'] or (len(c) == 1 and ord(c) > 31 and ord(c) < 127)

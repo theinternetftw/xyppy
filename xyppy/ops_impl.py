@@ -768,7 +768,7 @@ def read_char(env, opinfo):
         if opinfo.operands[1] != 0 or opinfo.operands[2] != 0:
             if DBG:
                 warn('read_char: interrupts not impl\'d yet!')
-    c = ascii_to_zscii(env.screen.getch())[0]
+    c = ascii_to_zscii(env.screen.getch_or_esc_seq())[0]
     set_var(env, opinfo.store_var, c)
 
 def set_font(env, opinfo):
