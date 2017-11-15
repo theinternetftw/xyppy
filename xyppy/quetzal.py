@@ -1,4 +1,5 @@
 from __future__ import print_function
+import os
 import sys
 import struct
 from iff import Chunk, FormChunk, packHdr
@@ -194,6 +195,8 @@ class StksChunk(Chunk):
         return packHdr(self) + framestr
 
 def read(filename):
+    if os.path.exists(filename + '.sav'):
+        filename += '.sav'
     with open(filename, 'rb') as f:
         formChunk = FormChunk.from_chunk(Chunk.from_data(f.read()))
         for chunk in formChunk.chunks:
@@ -208,6 +211,8 @@ def read(filename):
     return formChunk.subname, hdChunk, memChunk, stksChunk.frames
 
 def write(env, filename):
+    if not filename.endswith('.sav'):
+        filename += '.sav'
     try:
         with open(filename, 'wb') as f:
             chunks = [IFhdChunk.from_env(env),
