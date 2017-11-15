@@ -448,6 +448,8 @@ def getch_or_esc_seq():
             else:
                 c += seq
 
+    # puts('\n' + repr(c) + '\n')
+
     return c
 
 def peekch():

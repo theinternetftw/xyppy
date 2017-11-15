@@ -284,31 +284,93 @@ class Screen(object):
         edit_col = col + len(prefilled)
         chars = [c for c in prefilled]
 
+        def refresh_rest_of_line(is_delete=False):
+            to_backup = 0
+            for c in chars[edit_col-col:]:
+                term.puts(c)
+                to_backup += 1
+            if is_delete:
+                term.puts(' ')
+                to_backup += 1
+            if to_backup:
+                term.cursor_left(to_backup)
+
+        def backspace_char():
+            term.cursor_left()
+            term.puts(' ')
+            term.cursor_left()
+            del chars[edit_col-col-1 : edit_col-col]
+
         max_input_len = 120 # 120 char limit seen on gargoyle
         c = term.getch_or_esc_seq()
         while c != '\n' and c != '\r':
             if c == '\b' or c == '\x7f':
-                if chars:
-                    # tab normally not supported on z machines, but it being
-                    # missing feels weird and restrictive...
-                    # (even if i'm just going to replace the char later...)
-                    if chars[-1] == '\t':
-                        term.cursor_left(4)
-                    else:
-                        term.cursor_left()
-                        term.puts(' ')
-                        term.cursor_left()
-                    chars.pop()
+                if edit_col > col:
+                    backspace_char()
                     edit_col -= 1
+                    refresh_rest_of_line(is_delete=True)
+
+            # normal keys and a bit of readline flavor
+
+            # left arrow or C-b
+            elif c == '\x1b[D' or c == '\x02':
+                if edit_col > col:
+                    edit_col -= 1
+                    term.cursor_left()
+            # right arrow or C-f
+            elif c == '\x1b[C' or c == '\x06':
+                if edit_col-col < len(chars):
+                    edit_col += 1
+                    term.cursor_right()
+
+            # home or C-a
+            elif c == '\x1b[H' or c == '\x01':
+                while edit_col != col:
+                    edit_col -= 1
+                    term.cursor_left()
+            # end or C-a
+            elif c == '\x1b[F' or c == '\x05':
+                while edit_col-col != len(chars):
+                    edit_col += 1
+                    term.cursor_right()
+            # delete or C-d
+            elif c == '\x1b[3~' or c == '\x04':
+                del chars[edit_col-col : edit_col-col+1]
+                refresh_rest_of_line(is_delete=True)
+                if edit_col-col > len(chars):
+                    edit_col -= 1
+
+            # C-u, kill left of cursor
+            elif c == '\x15':
+                while chars[:edit_col-col]:
+                    backspace_char()
+                    edit_col -= 1
+                    refresh_rest_of_line(is_delete=True)
+
+            # C-u, kill right of cursor
+            elif c == '\x0b':
+                while chars[edit_col-col:]:
+                    del chars[edit_col-col : edit_col-col+1]
+                    refresh_rest_of_line(is_delete=True)
+                    if edit_col-col > len(chars):
+                        edit_col -= 1
+
             else:
                 if is_valid_inline_char(c) and len(chars) < max_input_len:
-                    chars.append(c)
                     if c == '\t':
-                        term.puts('    ')
+                        if len(chars) + 4 <= max_input_len:
+                            for i in xrange(4):
+                                chars.insert(edit_col-col, ' ')
+                                term.puts(' ')
+                                edit_col += 1
                     else:
+                        chars.insert(edit_col-col, c)
                         term.puts(c)
-                    edit_col += 1
+                        edit_col += 1
+                    refresh_rest_of_line()
+
             c = term.getch_or_esc_seq()
+
         term.hide_cursor()
         term.flush()
         for c in chars:
