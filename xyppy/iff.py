@@ -33,13 +33,13 @@ def splitChunks(data):
     return chunks
 
 def packChunks(chunks):
-    pchunks = ''
+    pchunks = bytearray([])
     for chunk in chunks:
-        pchunk = chunk.pack()
+        pchunk = bytearray(chunk.pack())
         if chunk.size & 1:
-            pchunk += '\0' #extra pad byte if odd size
-        pchunks += pchunk
-    return pchunks
+            pchunk.append(0) #extra pad byte if odd size
+        pchunks.extend(pchunk)
+    return bytes(pchunks)
 
 class FormChunk(Chunk):
     @classmethod
@@ -53,7 +53,7 @@ class FormChunk(Chunk):
     @classmethod
     def from_chunk_list(cls, subname, chunks):
         obj = cls()
-        obj.name = 'FORM'
+        obj.name = b'FORM'
         obj.subname = subname
         obj.chunks = chunks
         return obj

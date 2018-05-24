@@ -6,6 +6,7 @@ import struct
 
 from xyppy.iff import Chunk, FormChunk, packHdr
 
+import xyppy.six as six
 from xyppy.six.moves import range
 
 class IFhdChunk(Chunk):
@@ -14,17 +15,20 @@ class IFhdChunk(Chunk):
         obj = cls()
         obj.name, obj.size, obj.data = chunk.name, chunk.size, chunk.data
         obj.release = struct.unpack('>H', chunk.data[:2])[0]
-        obj.serial = map(ord, chunk.data[2:8])
+        obj.serial = list(chunk.data[2:8])
         obj.checksum = struct.unpack('>H', chunk.data[8:10])[0]
-        obj.pc = struct.unpack('>I', '\0'+chunk.data[10:13])[0]
+        pc_bytearray = bytearray([0,0,0,0])
+        pc_bytearray[1:] = bytearray(chunk.data[10:13])
+        pc_bytes = bytes(pc_bytearray)
+        obj.pc = struct.unpack('>I', pc_bytes)[0]
         return obj
     @classmethod
     def from_env(cls, env):
         obj = cls()
-        obj.name = 'IFhd'
+        obj.name = b'IFhd'
         obj.size = 13
         obj.release = env.hdr.release
-        obj.serial = ''.join(map(chr, env.hdr.serial))
+        obj.serial = bytes(bytearray(env.hdr.serial))
         obj.checksum = env.hdr.checksum
         if env.hdr.version < 4:
             obj.pc = env.last_pc_branch_var
@@ -37,32 +41,32 @@ class IFhdChunk(Chunk):
                 struct.pack('>I', self.pc)[1:])
 
 def decRLE(mem):
-    bigmem = ''
+    bigmem = []
     i = 0
     while i < len(mem):
-        bigmem += mem[i]
-        if mem[i] == '\0':
-            bigmem += '\0' * ord(mem[i+1])
+        bigmem.append(six.indexbytes(mem, i))
+        if six.indexbytes(mem, i) == 0:
+            bigmem.extend([0] * six.indexbytes(mem, i+1))
             i += 2
         else:
             i += 1
-    return bigmem
+    return bytes(bytearray(bigmem))
 
 def encRLE(mem):
-    small_mem = ''
+    small_mem = []
     i = 0
     while i < len(mem):
-        small_mem += mem[i]
-        if mem[i] == '\0':
+        small_mem.append(six.indexbytes(mem, i))
+        if six.indexbytes(mem, i) == 0:
             zero_run = 0
             i += 1
-            while i < len(mem) and mem[i] == '\0' and zero_run < 255:
+            while i < len(mem) and six.indexbytes(mem, i) == 0 and zero_run < 255:
                 zero_run += 1
                 i += 1
-            small_mem += chr(zero_run)
+            small_mem.append(zero_run)
         else:
             i += 1
-    return small_mem
+    return bytes(bytearray(small_mem))
 
 class CMemChunk(Chunk):
     @classmethod
@@ -75,13 +79,13 @@ class CMemChunk(Chunk):
     @classmethod
     def from_env(cls, env):
         obj = cls()
-        obj.name = 'CMem'
+        obj.name = b'CMem'
         obj.mem = env.mem[:env.hdr.static_mem_base]
         for i in range(len(obj.mem)):
-            obj.mem[i] ^= ord(env.orig_mem[i])
+            obj.mem[i] ^= six.indexbytes(env.orig_mem, i)
         while obj.mem[-1] == 0:
             obj.mem.pop()
-        obj.mem = ''.join(map(chr, obj.mem))
+        obj.mem = bytes(bytearray(obj.mem))
         obj.compressed = True
         return obj
     def pack(self):
@@ -100,9 +104,9 @@ class UMemChunk(Chunk):
     @classmethod
     def from_env(cls, env):
         obj = cls()
-        obj.name = 'UMem'
+        obj.name = b'UMem'
         obj.mem = env.mem[:env.hdr.static_mem_base]
-        obj.mem= ''.join(map(chr, obj.mem))
+        obj.mem= bytes(bytearray(obj.mem))
         obj.compressed = False
         return obj
     def pack(self):
@@ -114,18 +118,21 @@ class QFrame(object):
     @classmethod
     def from_packed(cls, data):
         obj = cls()
-        obj.return_addr = struct.unpack('>I', '\0'+data[:3])[0]
-        flags = ord(data[3])
+        ret_addr_bytearray = bytearray([0,0,0,0])
+        ret_addr_bytearray[1:] = bytearray(data[:3])
+        ret_addr_bytes = bytes(ret_addr_bytearray)
+        obj.return_addr = struct.unpack('>I', ret_addr_bytes)[0]
+        flags = six.indexbytes(data, 3)
         num_locals = flags & 15
         if flags & 16:
             # discard return val
             obj.return_val_loc = None
         else:
-            obj.return_val_loc = ord(data[4])
+            obj.return_val_loc = six.indexbytes(data, 4)
 
         # this should never have non-consecutive ones, right?
         # i.e. you can't have arg 3 without having args 1 and 2 (right?)
-        args_flag = ord(data[5])
+        args_flag = six.indexbytes(data, 5)
         obj.num_args = 0
         for i in range(7):
             if args_flag >> i:
@@ -158,19 +165,20 @@ class QFrame(object):
         if self.return_val_loc == None:
             flags |= 16
         args_byte = 2**self.num_args - 1
-        return (struct.pack('>I', self.return_addr)[1:] +
-                chr(flags) +
-                chr(self.return_val_loc or 0) +
-                chr(args_byte) +
-                packWords([len(self.stack)]) +
-                packWords(self.locals) +
-                packWords(self.stack))
+        return bytes(struct.pack('>I', self.return_addr)[1:] +
+                     bytearray([flags]) +
+                     bytearray([self.return_val_loc or 0]) +
+                     bytearray([args_byte]) +
+                     packWords([len(self.stack)]) +
+                     packWords(self.locals) +
+                     packWords(self.stack))
                
 def packWords(words):
-    out = ''
+    out = []
     for word in words:
-        out += chr(word >> 8) + chr(word & 0xff)
-    return out
+        out.append(word >> 8)
+        out.append(word & 0xff)
+    return bytearray(out)
 
 def getFrames(data):
     frames = []
@@ -190,13 +198,16 @@ class StksChunk(Chunk):
     @classmethod
     def from_env(cls, env):
         obj = cls()
-        obj.name = 'Stks'
+        obj.name = b'Stks'
         obj.frames = [QFrame.from_frame(f) for f in env.callstack]
         return obj
     def pack(self):
-        framestr = ''.join([f.pack() for f in self.frames])
-        self.size = len(framestr)
-        return packHdr(self) + framestr
+        framelist_flat = bytearray()
+        for f in self.frames:
+            framelist_flat.extend(f.pack())
+        framebytes = bytes(framelist_flat)
+        self.size = len(framebytes)
+        return packHdr(self) + framebytes
 
 def read(filename):
     if os.path.exists(filename + '.sav'):
@@ -204,13 +215,13 @@ def read(filename):
     with open(filename, 'rb') as f:
         formChunk = FormChunk.from_chunk(Chunk.from_data(f.read()))
         for chunk in formChunk.chunks:
-            if chunk.name == 'IFhd':
+            if chunk.name == b'IFhd':
                 hdChunk = IFhdChunk.from_chunk(chunk)
-            if chunk.name == 'CMem':
+            if chunk.name == b'CMem':
                 memChunk = CMemChunk.from_chunk(chunk)
-            if chunk.name == 'UMem':
+            if chunk.name == b'UMem':
                 memChunk = UMemChunk.from_chunk(chunk)
-            if chunk.name == 'Stks':
+            if chunk.name == b'Stks':
                 stksChunk = StksChunk.from_chunk(chunk)
     return formChunk.subname, hdChunk, memChunk, stksChunk.frames
 
@@ -222,7 +233,7 @@ def write(env, filename):
             chunks = [IFhdChunk.from_env(env),
                       CMemChunk.from_env(env),
                       StksChunk.from_env(env)]
-            formChunk = FormChunk.from_chunk_list('IFZS', chunks)
+            formChunk = FormChunk.from_chunk_list(b'IFZS', chunks)
             f.write(formChunk.pack())
         return True
     except IOError as ioerr:
@@ -236,11 +247,8 @@ def load_to_env(env, filename):
     except IOError as ioerr:
         msg('error reading file: '+str(ioerr)+'\n')
         return False
-    except:
-        msg('error decoding quetzal save file\n')
-        return False
 
-    if subname != 'IFZS':
+    if subname != b'IFZS':
         msg('not a quetzal save file\n')
     if env.hdr.release != hdrChunk.release:
         msg('release doesn\'t match\n')
@@ -252,9 +260,9 @@ def load_to_env(env, filename):
         env.reset()
         for i in range(len(memChunk.mem)):
             if memChunk.compressed:
-                env.mem[i] ^= ord(memChunk.mem[i])
+                env.mem[i] ^= six.indexbytes(memChunk.mem, i)
             else:
-                env.mem[i] = ord(memChunk.mem[i])
+                env.mem[i] = six.indexbytes(memChunk.mem, i)
         env.fixup_after_restore()
         env.pc = hdrChunk.pc
         env.callstack = frames
