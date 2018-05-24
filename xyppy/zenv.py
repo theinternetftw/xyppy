@@ -48,7 +48,7 @@ class Header(object):
         self.global_var_base = env.u16(0xC)
         self.static_mem_base = env.u16(0xE)
 
-        self.serial = list(env.mem[0x12:0x18])
+        self.serial = bytes(bytearray(env.mem[0x12:0x18]))
 
         self.abbrev_base = env.u16(0x18)
         self.file_len = env.u16(0x1A)

@@ -15,7 +15,7 @@ class IFhdChunk(Chunk):
         obj = cls()
         obj.name, obj.size, obj.data = chunk.name, chunk.size, chunk.data
         obj.release = struct.unpack('>H', chunk.data[:2])[0]
-        obj.serial = list(chunk.data[2:8])
+        obj.serial = bytes(bytearray(chunk.data[2:8]))
         obj.checksum = struct.unpack('>H', chunk.data[8:10])[0]
         pc_bytearray = bytearray([0,0,0,0])
         pc_bytearray[1:] = bytearray(chunk.data[10:13])
