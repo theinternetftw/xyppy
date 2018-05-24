@@ -12,6 +12,7 @@ from xyppy.ops_impl_compat import *
 
 import xyppy.quetzal as quetzal
 
+import xyppy.six as six
 from xyppy.six.moves import range
 
 def get_var(env, var_num, pop_stack=True):
@@ -855,7 +856,7 @@ def get_file_len(env):
 def verify(env, opinfo):
     vsum = 0
     for i in range(0x40, get_file_len(env)):
-        vsum += ord(env.orig_mem[i])
+        vsum += six.indexbytes(env.orig_mem, i)
     vsum &= 0xffff
     result = vsum == env.hdr.checksum
 
