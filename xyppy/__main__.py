@@ -2,17 +2,18 @@ from __future__ import print_function
 
 import argparse
 import sys
-import urllib2
 
 try:
     from xyppy.debug import err
-    from xyppy.zenv import Env, step
-    import xyppy.blorb as blorb
-    import xyppy.ops as ops
-    import xyppy.term as term
 except ImportError:
     print('error: must either build xyppy into a standalone file, or run xyppy as a module, e.g. "python -m xyppy"')
     sys.exit(1)
+
+from xyppy.zenv import Env, step
+import xyppy.blorb as blorb
+import xyppy.ops as ops
+import xyppy.term as term
+import xyppy.six.moves.urllib as urllib
 
 def main():
 
@@ -36,7 +37,7 @@ def main():
 
     url = args.STORY_FILE_OR_URL
     if any(map(url.startswith, ['http://', 'https://', 'ftp://'])):
-        f = urllib2.urlopen(url)
+        f = urllib.request.urlopen(url)
         mem = f.read()
         f.close()
     else:
