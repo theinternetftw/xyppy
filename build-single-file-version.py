@@ -9,8 +9,11 @@ package_dir = 'xyppy'
 python_directive = '#!/usr/bin/env python'
 
 packed = StringIO.StringIO()
-packed_writer = zipfile.PyZipFile(packed, 'w', zipfile.ZIP_DEFLATED)
-packed_writer.writepy(package_dir)
+packed_writer = zipfile.ZipFile(packed, 'w', zipfile.ZIP_DEFLATED)
+for fname in os.listdir(package_dir):
+    fpath = os.path.join(package_dir, fname)
+    if os.path.isfile(fpath):
+        packed_writer.write(fpath)
 packed_writer.writestr('__main__.py', '''
 from xyppy import __main__
 if __name__ == '__main__':
