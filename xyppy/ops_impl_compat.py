@@ -1,6 +1,8 @@
 from xyppy.debug import warn, err
 import xyppy.term as term
 
+from xyppy.six.moves import range
+
 def get_cursor_loc_after_erase(env, cleared_window):
     if cleared_window == 0:
         if env.hdr.version >= 5:
@@ -226,7 +228,7 @@ def make_dict_string(env, text):
         ztext.append(5)
 
     packed_text = []
-    for i in xrange(0, len(ztext), 3):
+    for i in range(0, len(ztext), 3):
         c, c1, c2 = ztext[i:i+3]
         packed_text.append((c << 10) | (c1 << 5) | c2)
     packed_text[-1] |= 0x8000
@@ -460,7 +462,7 @@ def print_prop_list(env, obj):
         size = get_prop_size(env, ptr)
         data_ptr = get_prop_data_ptr(env, ptr)
         warn('    prop #',num,' - size',size, end='')
-        for i in xrange(size):
+        for i in range(size):
             warn('   ',hex(env.mem[data_ptr+i]), end='')
         warn()
         ptr = data_ptr + size
@@ -474,7 +476,7 @@ def parse_call_header(env, call_addr):
     if env.hdr.version < 5:
         locals_ptr = call_addr + 1
         locals = []
-        for i in xrange(num_locals):
+        for i in range(num_locals):
             locals.append(env.u16(locals_ptr))
             locals_ptr += 2
         code_ptr = locals_ptr
@@ -518,7 +520,7 @@ def fill_text_buffer(env, user_input, text_buffer):
 
     max_len = text_buf_len-(text_buf_ptr-text_buffer)
     text_len = min(len(user_input), max_len)
-    for i in xrange(text_len):
+    for i in range(text_len):
         env.write8(text_buf_ptr, user_input[i])
         text_buf_ptr += 1
 
@@ -547,7 +549,7 @@ def clip_word_list(env, words):
         MAX_WORD_LEN = 6
     else:
         MAX_WORD_LEN = 9
-    for i in xrange(len(words)):
+    for i in range(len(words)):
         if len(words[i]) > MAX_WORD_LEN:
             words[i] = words[i][:MAX_WORD_LEN]
     return words
@@ -563,7 +565,7 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
     if dict_base == 0:
         dict_base = env.hdr.dict_base
     num_word_seps = env.mem[dict_base]
-    for i in xrange(num_word_seps):
+    for i in range(num_word_seps):
         word_separators.append(env.mem[dict_base+1+i])
 
     word = []
@@ -572,7 +574,7 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
     word_len = 0
     word_lens = []
     scan_ptr = get_text_scan_ptr(env, text_buffer)
-    for i in xrange(used_tbuf_len):
+    for i in range(used_tbuf_len):
 
         c = env.mem[scan_ptr]
 
@@ -635,7 +637,7 @@ def handle_parse(env, text_buffer, parse_buffer, dict_base=0, skip_unknown_words
         packed_word = make_dict_string(env, wordstr)
 
         dict_addr = 0
-        for i in xrange(num_entries):
+        for i in range(num_entries):
             entry_addr = entries_start+i*entry_length
             if match_dict_entry(env, entry_addr, packed_word):
                 dict_addr = entry_addr

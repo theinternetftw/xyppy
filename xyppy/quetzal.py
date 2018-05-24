@@ -6,6 +6,8 @@ import struct
 
 from xyppy.iff import Chunk, FormChunk, packHdr
 
+from xyppy.six.moves import range
+
 class IFhdChunk(Chunk):
     @classmethod
     def from_chunk(cls, chunk):
@@ -75,7 +77,7 @@ class CMemChunk(Chunk):
         obj = cls()
         obj.name = 'CMem'
         obj.mem = env.mem[:env.hdr.static_mem_base]
-        for i in xrange(len(obj.mem)):
+        for i in range(len(obj.mem)):
             obj.mem[i] ^= ord(env.orig_mem[i])
         while obj.mem[-1] == 0:
             obj.mem.pop()
@@ -125,18 +127,18 @@ class QFrame(object):
         # i.e. you can't have arg 3 without having args 1 and 2 (right?)
         args_flag = ord(data[5])
         obj.num_args = 0
-        for i in xrange(7):
+        for i in range(7):
             if args_flag >> i:
                 obj.num_args += 1
 
         used_stack_size = struct.unpack('>H', data[6:8])[0]
         obj.locals = []
-        for i in xrange(num_locals):
+        for i in range(num_locals):
             addr = 8+i*2
             local = struct.unpack('>H', data[addr:addr+2])[0]
             obj.locals.append(local)
         obj.stack = []
-        for i in xrange(used_stack_size):
+        for i in range(used_stack_size):
             addr = 8+num_locals*2+i*2
             word = struct.unpack('>H', data[addr:addr+2])[0]
             obj.stack.append(word)
@@ -248,7 +250,7 @@ def load_to_env(env, filename):
         msg('checksum does\'t match\n')
     else:
         env.reset()
-        for i in xrange(len(memChunk.mem)):
+        for i in range(len(memChunk.mem)):
             if memChunk.compressed:
                 env.mem[i] ^= ord(memChunk.mem[i])
             else:

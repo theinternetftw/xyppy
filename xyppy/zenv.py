@@ -10,6 +10,8 @@ import xyppy.ops_decode as ops_decode
 from xyppy.zmath import to_signed_word
 from xyppy.debug import DBG, warn, err
 
+from xyppy.six.moves import range
+
 def b16_setter(base):
     def setter(self, val):
         val &= 0xffff
@@ -288,7 +290,7 @@ def dbg_dump_dictionary(env):
     num_entries = env.u16(dict_base+1+num_word_seps+1)
     entries_start = dict_base+1+num_word_seps+1+2
     env.screen.write('\n')
-    for i in xrange(num_entries):
+    for i in range(num_entries):
         entry_addr = entries_start+i*entry_length
         entry = [env.u16(entry_addr),
                  env.u16(entry_addr+2)]

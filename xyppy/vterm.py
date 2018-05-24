@@ -3,6 +3,8 @@ import random
 import xyppy.term as term
 from xyppy.debug import warn
 
+from xyppy.six.moves import range
+
 # warning: hack filled nonsense follows, since I'm
 # converting a system that expects full control over
 # the screen to something that prints linearly in
@@ -53,22 +55,22 @@ class Screen(object):
         self.haveNotScrolled = True
 
     def make_screen_buf(self):
-        return [self.make_screen_line() for i in xrange(self.env.hdr.screen_height_units)]
+        return [self.make_screen_line() for i in range(self.env.hdr.screen_height_units)]
 
     def make_screen_line(self):
         c, fg, bg, style = ' ', self.env.fg_color, self.env.bg_color, 'normal'
-        return ScreenLine([ScreenChar(c, fg, bg, style) for i in xrange(self.env.hdr.screen_width_units)])
+        return ScreenLine([ScreenChar(c, fg, bg, style) for i in range(self.env.hdr.screen_width_units)])
 
     def blank_top_win(self):
         env = self.env
         term.home_cursor()
-        for i in xrange(env.top_window_height):
+        for i in range(env.top_window_height):
             write_char('\n', env.fg_color, env.bg_color, env.text_style)
             self.textBuf[i] = self.make_screen_line()
             self.seenBuf[self.textBuf[i]] = False
 
     def blank_bottom_win(self):
-        for i in xrange(self.env.top_window_height, self.env.hdr.screen_height_units):
+        for i in range(self.env.top_window_height, self.env.hdr.screen_height_units):
             self.scroll()
 
     def write(self, text):
@@ -250,8 +252,8 @@ class Screen(object):
         self.finish_wrapping()
         term.home_cursor()
         buf = self.textBuf
-        for i in xrange(len(buf)):
-            for j in xrange(len(buf[i])):
+        for i in range(len(buf)):
+            for j in range(len(buf[i])):
                 c = buf[i][j]
                 write_char(c.char, c.fg_color, c.bg_color, c.text_style)
             if i < len(buf) - 1:
@@ -381,7 +383,7 @@ class Screen(object):
                 if is_valid_inline_char(c) and len(cursor_line.chars) < max_input_len:
                     if c == '\t':
                         if len(cursor_line.chars) + 4 <= max_input_len:
-                            for i in xrange(4):
+                            for i in range(4):
                                 cursor_line.insert(' ')
                     else:
                         cursor_line.insert(c)
@@ -398,7 +400,7 @@ class Screen(object):
 
     def first_draw(self):
         env = self.env
-        for i in xrange(env.hdr.screen_height_units-1):
+        for i in range(env.hdr.screen_height_units-1):
             write_char('\n', env.fg_color, env.bg_color, env.text_style)
         term.fill_to_eol_with_bg_color()
         term.home_cursor()

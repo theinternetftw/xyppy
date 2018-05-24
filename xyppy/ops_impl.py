@@ -12,6 +12,8 @@ from xyppy.ops_impl_compat import *
 
 import xyppy.quetzal as quetzal
 
+from xyppy.six.moves import range
+
 def get_var(env, var_num, pop_stack=True):
     # if DBG:
     #     warn('    get_var(', get_var_name(var_num), ', pop_stack =', pop_stack, ')')
@@ -806,7 +808,7 @@ def output_stream(env, opinfo):
             zscii_buffer = ascii_to_zscii(env.output_buffer[stream])
             buflen = len(zscii_buffer)
             env.write16(table_addr, buflen)
-            for i in xrange(len(zscii_buffer)):
+            for i in range(len(zscii_buffer)):
                 env.write8(table_addr+2+i, zscii_buffer[i])
             env.output_buffer[stream] = ''
             if len(env.memory_ostream_stack) == 0:
@@ -852,7 +854,7 @@ def get_file_len(env):
 
 def verify(env, opinfo):
     vsum = 0
-    for i in xrange(0x40, get_file_len(env)):
+    for i in range(0x40, get_file_len(env)):
         vsum += ord(env.orig_mem[i])
     vsum &= 0xffff
     result = vsum == env.hdr.checksum
@@ -876,17 +878,17 @@ def copy_table(env, opinfo):
     if second == 0:
         # zeros out first
         size = abs(size)
-        for i in xrange(size):
+        for i in range(size):
             env.write8(first+i, 0)
     elif size > 0:
         # protects against corruption of overlapping tables
         tab = env.mem[first:first+size]
-        for i in xrange(size):
+        for i in range(size):
             env.write8(second+i, tab[i])
     elif size < 0:
         # allows for the corruption of overlapping tables
         size = abs(size)
-        for i in xrange(size):
+        for i in range(size):
             env.write8(second+i, env.mem[first+i])
 
 def scan_table(env, opinfo):
@@ -901,7 +903,7 @@ def scan_table(env, opinfo):
     field_len = form & 127
 
     addr = 0
-    for i in xrange(tab_len):
+    for i in range(tab_len):
         test_addr = tab_addr + i*field_len
         if val_size == 2:
             test_val = env.u16(test_addr)
@@ -937,9 +939,9 @@ def print_table(env, opinfo):
         skip = 0
 
     col = env.cursor[env.current_window][1]
-    for i in xrange(height):
+    for i in range(height):
         row = env.cursor[env.current_window][0]
-        line = [env.mem[tab_addr + i*(width+skip) + j] for j in xrange(width)]
+        line = [env.mem[tab_addr + i*(width+skip) + j] for j in range(width)]
         write(env, zscii_to_ascii(env, line))
         if i < height - 1:
             env.screen.finish_wrapping()

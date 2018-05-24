@@ -6,6 +6,8 @@ import struct
 from xyppy.iff import Chunk, FormChunk
 from xyppy.debug import err
 
+from xyppy.six.moves import range
+
 class Resource(object):
     def __init__(self, usage, number, start):
         self.usage = usage
@@ -19,7 +21,7 @@ class RIdxChunk(Chunk):
         obj.name, obj.size, obj.data = chunk.name, chunk.size, chunk.data
         num_resources = struct.unpack_from('>I', chunk.data)[0]
         obj.resources = []
-        for i in xrange(num_resources):
+        for i in range(num_resources):
             usage, number, start = struct.unpack_from('>4sII', chunk.data[4+i*12:])
             obj.resources.append(Resource(usage, number, start))
         return obj

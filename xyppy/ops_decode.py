@@ -2,6 +2,8 @@ from xyppy.debug import DBG, warn, err
 from xyppy.zmath import to_signed_word
 import xyppy.ops as ops
 
+from xyppy.six.moves import range
+
 class VarForm:
     pass
 class ShortForm:
@@ -120,7 +122,7 @@ def decode(env, pc):
 
     operands = []
     var_op_info = []
-    for i in xrange(len(sizes)):
+    for i in range(len(sizes)):
         size = sizes[i]
         if size == WordSize:
             operands.append(env.u16(operand_ptr))
