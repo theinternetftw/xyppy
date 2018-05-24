@@ -5,12 +5,12 @@
 
 import random
 
-from debug import DBG, warn, err
-from zmath import to_signed_word
+from xyppy.debug import DBG, warn, err
+from xyppy.zmath import to_signed_word
 
-from ops_impl_compat import *
+from xyppy.ops_impl_compat import *
 
-import quetzal
+import xyppy.quetzal as quetzal
 
 def get_var(env, var_num, pop_stack=True):
     # if DBG:

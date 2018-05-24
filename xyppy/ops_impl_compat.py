@@ -1,5 +1,5 @@
-from debug import warn, err
-import term
+from xyppy.debug import warn, err
+import xyppy.term as term
 
 def get_cursor_loc_after_erase(env, cleared_window):
     if cleared_window == 0:

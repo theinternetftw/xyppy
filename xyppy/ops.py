@@ -1,4 +1,4 @@
-from ops_impl import *
+from xyppy.ops_impl import *
 
 dispatch = {}
 has_store_var = {}

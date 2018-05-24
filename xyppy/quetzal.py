@@ -1,8 +1,10 @@
 from __future__ import print_function
+
 import os
 import sys
 import struct
-from iff import Chunk, FormChunk, packHdr
+
+from xyppy.iff import Chunk, FormChunk, packHdr
 
 class IFhdChunk(Chunk):
     @classmethod

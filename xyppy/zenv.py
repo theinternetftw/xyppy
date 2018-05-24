@@ -2,12 +2,13 @@ from __future__ import print_function
 from array import array
 import sys
 
-import ops
-import term
-import vterm
-import ops_decode
-from zmath import to_signed_word
-from debug import DBG, warn, err
+import xyppy.ops as ops
+import xyppy.term as term
+import xyppy.vterm as vterm
+import xyppy.ops_decode as ops_decode
+
+from xyppy.zmath import to_signed_word
+from xyppy.debug import DBG, warn, err
 
 def b16_setter(base):
     def setter(self, val):

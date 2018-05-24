@@ -1,7 +1,6 @@
-from debug import DBG, warn, err
-from zmath import to_signed_word
-
-import ops
+from xyppy.debug import DBG, warn, err
+from xyppy.zmath import to_signed_word
+import xyppy.ops as ops
 
 class VarForm:
     pass

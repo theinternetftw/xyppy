@@ -4,19 +4,27 @@ import argparse
 import sys
 import urllib2
 
-from debug import err
-from zenv import Env, step
-import blorb
-import ops
-import term
+try:
+    from xyppy.debug import err
+    from xyppy.zenv import Env, step
+    import xyppy.blorb as blorb
+    import xyppy.ops as ops
+    import xyppy.term as term
+except ImportError:
+    print('error: must either build xyppy into a standalone file, or run xyppy as a module, e.g. "python -m xyppy"')
+    sys.exit(1)
 
 def main():
 
     if len(sys.argv) < 2:
         # I prefer a non-auto-gen'd zero arg screen
+        if sys.argv[0].endswith('__main__.py'):
+            name = '-m xyppy'
+        else:
+            name = sys.argv[0]
         print('usage examples:')
-        print('    python '+sys.argv[0]+' STORY_FILE.z5')
-        print('    python '+sys.argv[0]+' http://example.com/STORY_FILE.z5')
+        print('    python '+name+' STORY_FILE.z5')
+        print('    python '+name+' http://example.com/STORY_FILE.z5')
         print()
         print('    for more, try --help')
         sys.exit(1)

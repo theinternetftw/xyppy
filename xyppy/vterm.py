@@ -1,7 +1,7 @@
-import term
 import random
 
-from debug import warn
+import xyppy.term as term
+from xyppy.debug import warn
 
 # warning: hack filled nonsense follows, since I'm
 # converting a system that expects full control over
