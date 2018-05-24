@@ -10,6 +10,8 @@ import time
 from collections import deque
 from threading import Thread
 
+from xyppy.debug import err, warn
+
 win_original_attributes = None
 win_original_cursor_info = None
 
@@ -118,7 +120,7 @@ def write_char_with_color(char, fg_col, bg_col):
                                                            cursor,
                                                            ctypes.byref(written))
         ctypes.windll.kernel32.WriteConsoleOutputCharacterA(stdout_handle,
-                                                            ctypes.c_char_p(char),
+                                                            ctypes.c_char_p(bytes(char.encode(sys.stdout.encoding))),
                                                             1,
                                                             cursor,
                                                             ctypes.byref(written))
@@ -216,7 +218,7 @@ def fill_to_eol_with_bg_color():
 
             written = ctypes.c_uint(0)
             char_attr = ctypes.c_uint16(cbuf.wAttributes)
-            space = ctypes.c_char_p(' ')
+            space = ctypes.c_char_p(b' ')
             for i in range(distance):
                 temp_cursor.X = cursor.X + i
                 temp_cursor.Y = cursor.Y
