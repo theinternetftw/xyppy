@@ -2,9 +2,9 @@
 
 ### Usage:
 
-* python xyppy &lt;FILE\_OR\_URL&gt; (in module/dev mode)
+* python -m xyppy &lt;FILE\_OR\_URL&gt; (in module/dev mode)
 * python xyppy.py &lt;FILE\_OR\_URL&gt; (in single file mode)
-* run ./build.py to get that handy single-file xyppy.py
+* run ./build-single-file-version.py to get that handy single-file xyppy.py
 
 ### Quick Look:
 
@@ -15,7 +15,7 @@ More screens can be found on [their dedicated page.](https://github.com/theinter
 ### Features:
 
 * Supports all modern Z-machine games (versions 2, 3, 4, 5, 7, 8, and zblorb files)
-* Everything, including the build system, requires nothing but modern python 2
+* Everything, including the build system, requires nothing but modern python 2 or 3
 * Quetzal support, so saves are portable to and from many other zmachine apps
 * Healthy color terminal support on windows and linux
 * Run games straight from the web by passing in a URL
@@ -31,4 +31,3 @@ More screens can be found on [their dedicated page.](https://github.com/theinter
 ### TODO:
 * More features, implement the last few bits of the spec
 * Config file, so you don't have to set an alias or keep passing args
-* Python 2/3 compat?
