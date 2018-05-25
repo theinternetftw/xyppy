@@ -165,7 +165,7 @@ class Screen(object):
         if not self.env.options.no_slow_scroll:
             if not term.is_windows: # windows is slow enough, atm :/
                 self.flush()
-                time.sleep(0.008)
+                time.sleep(0.002)
 
     def new_line(self):
         env, win = self.env, self.env.current_window
