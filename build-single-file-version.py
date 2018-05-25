@@ -3,12 +3,16 @@
 import os
 import stat
 import zipfile
-import StringIO
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import BytesIO as StringIO
 
 package_dir = 'xyppy'
 python_directive = '#!/usr/bin/env python'
 
-packed = StringIO.StringIO()
+packed = StringIO()
 packed_writer = zipfile.ZipFile(packed, 'w', zipfile.ZIP_DEFLATED)
 for fname in os.listdir(package_dir):
     fpath = os.path.join(package_dir, fname)
@@ -23,6 +27,7 @@ packed_writer.close()
 
 pyfile = package_dir + '.py'
 with open(pyfile, 'wb') as f:
-    f.write(python_directive + '\n')
+    shebang = bytes((python_directive + '\n').encode('ascii'))
+    f.write(shebang)
     f.write(packed.getvalue())
 os.chmod(pyfile, stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
