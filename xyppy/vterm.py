@@ -245,7 +245,7 @@ class Screen(object):
             else:
                 y, x = env.cursor[win]
                 self.textBuf[y][x] = c
-                self.seenBuf[y] = False
+                self.seenBuf[self.textBuf[y]] = False
                 env.cursor[win] = y, x+1
                 if x+1 == w:
                     self.new_line()
