@@ -27,6 +27,11 @@ class ScreenChar(object):
         self.text_style = text_style
     def __str__(self):
         return self.char
+    def __eq__(self, sc2):
+        return (self.char == sc2.char and
+                self.fg_color == sc2.fg_color and
+                self.bg_color == sc2.bg_color and
+                self.text_style == sc2.text_style)
 
 def sc_line_to_string(line):
     return repr(''.join(map(lambda x: x.char, line)))
@@ -235,7 +240,7 @@ class Screen(object):
                     self.write_unwrapped(word)
                 text = collapse_on_newline(text)
 
-    def write_unwrapped(self, text_as_screenchars):
+    def write_unwrapped(self, text_as_screenchars, already_seen=False):
         env = self.env
         win = env.current_window
         w = env.hdr.screen_width_units
@@ -244,8 +249,10 @@ class Screen(object):
                 self.new_line()
             else:
                 y, x = env.cursor[win]
+                oldc = self.textBuf[y][x]
                 self.textBuf[y][x] = c
-                self.seenBuf[self.textBuf[y]] = False
+                if c != oldc and not already_seen:
+                    self.seenBuf[self.textBuf[y]] = False
                 env.cursor[win] = y, x+1
                 if x+1 == w:
                     self.new_line()
@@ -268,7 +275,7 @@ class Screen(object):
         env = self.env
 
         for c in prompt:
-            self.write_unwrapped([ScreenChar(c, env.fg_color, env.bg_color, env.text_style)])
+            self.write_unwrapped([ScreenChar(c, env.fg_color, env.bg_color, env.text_style)], already_seen=True)
         self.flush()
         self.update_seen_lines()
 
@@ -395,7 +402,7 @@ class Screen(object):
         term.hide_cursor()
         term.flush()
         for c in cursor_line.chars:
-            self.write_unwrapped([ScreenChar(c, env.fg_color, env.bg_color, env.text_style)])
+            self.write_unwrapped([ScreenChar(c, env.fg_color, env.bg_color, env.text_style)], already_seen=True)
         self.new_line_via_spaces(env.fg_color, env.bg_color, env.text_style)
         term.home_cursor()
         return ''.join(cursor_line.chars)
