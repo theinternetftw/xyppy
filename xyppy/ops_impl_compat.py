@@ -1,4 +1,4 @@
-from xyppy.debug import warn, err
+from xyppy.debug import warn, err, DBG
 import xyppy.term as term
 
 from xyppy.six.moves import range
