@@ -41,8 +41,11 @@ def main():
         mem = f.read()
         f.close()
     else:
-        with open(url, 'rb') as f:
-            mem = f.read()
+        try:
+            with open(url, 'rb') as f:
+                mem = f.read()
+        except IOError as e:
+            err('could not load file:', e)
     if blorb.is_blorb(mem):
         mem = blorb.get_code(mem)
     env = Env(mem, args)

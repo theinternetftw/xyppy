@@ -428,6 +428,7 @@ class Screen(object):
     # TODO: better formatting here (?)
     def msg(self, text):
         self.write(text)
+        self.write('[press any key to continue]\n')
         self.flush()
         term.getch_or_esc_seq()
 

@@ -245,7 +245,7 @@ def load_to_env(env, filename):
     try:
         subname, hdrChunk, memChunk, frames = read(filename)
     except IOError as ioerr:
-        msg('error reading file: '+str(ioerr)+'\n')
+        env.screen.msg('error reading file: '+str(ioerr)+'\n')
         return False
 
     if subname != b'IFZS':

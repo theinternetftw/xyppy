@@ -9,5 +9,5 @@ def warn(*args, **kwargs):
 
 def err(*args, **kwargs):
     print('error:', *args, file=sys.stderr, **kwargs)
-    sys.exit()
+    sys.exit(1)
 
