@@ -384,7 +384,7 @@ class Screen(object):
             elif c == '\x15':
                 cursor_line.kill_left()
 
-            # C-u, kill right of cursor
+            # C-k, kill right of cursor
             elif c == '\x0b':
                 cursor_line.kill_right()
 
