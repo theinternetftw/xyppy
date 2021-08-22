@@ -268,7 +268,7 @@ def to_unicode_fallback(c):
     if c in default_unicode_fallback_table:
         return default_unicode_fallback_table[c]
     if c in extra_unicode_fallback_table:
-        return default_unicode_fallback_table[c]
+        return extra_unicode_fallback_table[c]
     return '?'
 
 def _make_to_unicode():
