@@ -53,7 +53,7 @@ def main():
     if env.hdr.version not in [1,2,3,4,5,7,8]:
         err('unsupported z-machine version: '+str(env.hdr.version))
 
-    term.init(env)
+    term.init()
     env.screen.first_draw()
     ops.setup_opcodes(env)
     try:

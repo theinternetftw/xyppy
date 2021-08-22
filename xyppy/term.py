@@ -21,7 +21,7 @@ unix_screen_is_reset = False
 stdin_is_tty = sys.stdin.isatty()
 stdout_is_tty = sys.stdout.isatty()
 
-def init(env):
+def init():
     global win_original_attributes
     global win_original_cursor_info
     if is_windows:
@@ -81,8 +81,9 @@ def init(env):
         signal.signal(signal.SIGCONT, on_cont_sig)
 
     def on_exit_common():
+        w, h = last_get_size
         home_cursor()
-        cursor_down(env.hdr.screen_height_units)
+        cursor_down(h)
         reset_color()
         show_cursor()
     atexit.register(on_exit_common)
@@ -155,19 +156,23 @@ class CHAR_INFO(ctypes.Structure):
     _fields_ = [("Char", char_union),
                 ("Attributes", ctypes.c_uint16)]
 
+DEFAULT_GET_SIZE = 80, 40
+last_get_size = DEFAULT_GET_SIZE
 def get_size():
     if not stdout_is_tty:
-        return 80, 40
+        result = DEFAULT_GET_SIZE
     elif is_windows:
         cbuf = CONSOLE_SCREEN_BUFFER_INFO()
         stdout_handle = ctypes.windll.kernel32.GetStdHandle(ctypes.c_ulong(-11))
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo(stdout_handle, ctypes.byref(cbuf))
-        return cbuf.srWindow.Right-cbuf.srWindow.Left+1, cbuf.srWindow.Bottom-cbuf.srWindow.Top+1
+        result = cbuf.srWindow.Right-cbuf.srWindow.Left+1, cbuf.srWindow.Bottom-cbuf.srWindow.Top+1
     else:
         import fcntl, termios, struct
         result = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, struct.pack('HHHH', 0, 0, 0, 0))
         h, w, hp, wp = struct.unpack('HHHH', result)
-        return w, h
+        result = w, h
+    last_get_size = result
+    return result
 
 def scroll_down():
     reset_color() # avoid adding bg at bottom
