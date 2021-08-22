@@ -1,12 +1,12 @@
 from xyppy.ops_impl import *
 
-dispatch = {}
-has_store_var = {}
-has_branch_var = {}
+dispatch = [None]*256
+has_store_var = [False]*256
+has_branch_var = [False]*256
 
-ext_dispatch = {}
-ext_has_store_var = {}
-ext_has_branch_var = {}
+ext_dispatch = [None]*256
+ext_has_store_var = [False]*256
+ext_has_branch_var = [False]*256
 
 def op(opcode, f, svar=False, bvar=False):
     dispatch[opcode] = f

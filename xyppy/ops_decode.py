@@ -205,5 +205,10 @@ def decode(env, pc):
         warn('      next_pc', hex(next_pc))
         #warn('      bytes', op_hex)
 
-    return dispatch[opcode], opinfo, next_pc
+    opfn = dispatch[opcode]
+    if not opfn:
+        ext_info = ' (extended)' if dispatch == ops.ext_dispatch else ''
+        err('unknown z-machine opcode: {}{}'.format(opcode, ext_info))
+
+    return opfn, opinfo, next_pc
 

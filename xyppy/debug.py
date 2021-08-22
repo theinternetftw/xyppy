@@ -8,6 +8,6 @@ def warn(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 def err(*args, **kwargs):
-    print('error:', *args, file=sys.stderr, **kwargs)
+    print('\nerror:', *args, file=sys.stderr, **kwargs)
     sys.exit(1)
 
