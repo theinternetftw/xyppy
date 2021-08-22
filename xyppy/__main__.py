@@ -9,10 +9,7 @@ except ImportError:
     print('error: must either build xyppy into a standalone file, or run xyppy as a module, e.g. "python -m xyppy"')
     sys.exit(1)
 
-from xyppy.zenv import Env, step
-import xyppy.blorb as blorb
-import xyppy.ops as ops
-import xyppy.term as term
+from xyppy import zenv, glulx, blorb, ops, term
 import xyppy.six.moves.urllib as urllib
 
 def main():
@@ -46,10 +43,27 @@ def main():
                 mem = f.read()
         except IOError as e:
             err('could not load file:', e)
-    if blorb.is_blorb(mem):
-        mem = blorb.get_code(mem)
-    env = Env(mem, args)
 
+    # TODO: get this by inspecting data (using blorb desigs for now)
+    vm_type = 'ZCOD'
+
+    if blorb.is_blorb(mem):
+        codeChunk = blorb.get_code_chunk(mem)
+        if not codeChunk:
+            err('no runnable game code found in blorb file')
+        mem = codeChunk.data
+        vm_type = codeChunk.name
+
+    if vm_type == 'ZCOD':
+        run_zmach(mem, args)
+    elif vm_type == 'GLUL':
+        run_gmach(mem, args)
+    else:
+        err('unknown game vm type: {}'.format(repr(vm_type)))
+
+
+def run_zmach(mem, args):
+    env = zenv.Env(mem, args)
     if env.hdr.version not in [1,2,3,4,5,7,8]:
         err('unsupported z-machine version: '+str(env.hdr.version))
 
@@ -58,9 +72,12 @@ def main():
     ops.setup_opcodes(env)
     try:
         while True:
-            step(env)
+            zenv.step(env)
     except KeyboardInterrupt:
         pass
+
+def run_gmach(mem, args):
+    err('glulx games not yet supported')
 
 if __name__ == '__main__':
     main()

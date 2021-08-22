@@ -29,7 +29,7 @@ class RIdxChunk(Chunk):
 def is_blorb(fdata):
     return fdata[:4] == b'FORM' and fdata[8:12] == b'IFRS'
 
-def get_code(filedata):
+def get_code_chunk(filedata):
     formChunk = FormChunk.from_chunk(Chunk.from_data(filedata))
     for chunk in formChunk.chunks:
         if chunk.name == b'RIdx':
@@ -37,9 +37,8 @@ def get_code(filedata):
             for r in rIdxChunk.resources:
                 if r.usage == b'Exec' and r.number == 0:
                     codeChunk = Chunk.from_data(filedata[r.start:])
-                    if codeChunk.name == b'ZCOD':
-                        return codeChunk.data
-    err('no ZCOD chunk found in blorb resource index')
+                    return codeChunk
+    return None
 
 """
 def get_type(formChunk, usage_type):
