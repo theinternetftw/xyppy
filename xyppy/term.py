@@ -81,7 +81,7 @@ def init():
         signal.signal(signal.SIGCONT, on_cont_sig)
 
     def on_exit_common():
-        w, h = last_get_size
+        w, h = get_size()
         home_cursor()
         cursor_down(h)
         reset_color()
@@ -157,7 +157,6 @@ class CHAR_INFO(ctypes.Structure):
                 ("Attributes", ctypes.c_uint16)]
 
 DEFAULT_GET_SIZE = 80, 40
-last_get_size = DEFAULT_GET_SIZE
 def get_size():
     if not stdout_is_tty:
         result = DEFAULT_GET_SIZE
