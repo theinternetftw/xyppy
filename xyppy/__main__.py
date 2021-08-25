@@ -9,7 +9,7 @@ except ImportError:
     print('error: must either build xyppy into a standalone file, or run xyppy as a module, e.g. "python -m xyppy"')
     sys.exit(1)
 
-from xyppy import zenv, glulx, blorb, ops, term
+from xyppy import zenv, blorb, ops, term, glulx
 import xyppy.six.moves.urllib as urllib
 
 def main():
@@ -45,7 +45,7 @@ def main():
             err('could not load file:', e)
 
     # TODO: get this by inspecting data (using blorb desigs for now)
-    vm_type = 'ZCOD'
+    vm_type = b'ZCOD'
 
     if blorb.is_blorb(mem):
         codeChunk = blorb.get_code_chunk(mem)
@@ -54,9 +54,9 @@ def main():
         mem = codeChunk.data
         vm_type = codeChunk.name
 
-    if vm_type == 'ZCOD':
+    if vm_type == b'ZCOD':
         run_zmach(mem, args)
-    elif vm_type == 'GLUL':
+    elif vm_type == b'GLUL':
         run_gmach(mem, args)
     else:
         err('unknown game vm type: {}'.format(repr(vm_type)))
