@@ -14,10 +14,11 @@ python_directive = '#!/usr/bin/env python'
 
 packed = StringIO()
 packed_writer = zipfile.ZipFile(packed, 'w', zipfile.ZIP_DEFLATED)
-for fname in os.listdir(package_dir):
-    fpath = os.path.join(package_dir, fname)
-    if os.path.isfile(fpath):
-        packed_writer.write(fpath)
+for dirpath, dirnames, filenames in os.walk(package_dir):
+    for fname in filenames:
+        fpath = os.path.join(dirpath, fname)
+        if os.path.isfile(fpath):
+            packed_writer.write(fpath)
 packed_writer.writestr('__main__.py', '''
 from xyppy import __main__
 if __name__ == '__main__':
