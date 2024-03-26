@@ -1,0 +1,37 @@
+[project]
+name = "xyppy"
+version = "0.0.0"
+authors = [
+  { name="theinternetftw" },
+]
+description = "Play Z-machine text adventure games"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+	"Programming Language :: Python :: 3",
+	"License :: OSI Approved :: MIT License",
+	"Operating System :: OS Independent",
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console :: Curses",
+    "Topic :: Games/Entertainment",
+    
+]
+keywords = ["infocom", "adventure", "game", "z-machine", "zmachine"]
+dependencies = [
+    # none
+]
+[project.urls]
+Homepage = "https://github.com/theinternetftw/xyppy"
+Repository = "https://github.com/theinternetftw/xyppy.git"
+Issues = "https://github.com/theinternetftw/issues"
+
+[build-system]
+requires = [
+	"setuptools>=61.0",
+]
+build_backend="setuptools.build_meta"
+
+[tool.setuptools]
+packages = [
+    "xyppy",
+]

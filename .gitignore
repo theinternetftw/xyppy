@@ -1,2 +1,4 @@
 *.pyc
 *.sav
+build/
+xyppy.egg-info/
