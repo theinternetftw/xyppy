@@ -5,7 +5,7 @@
 * `python -m xyppy FILE_OR_URL` (in module/dev mode)
 * `python xyppy.py FILE_OR_URL` (in single file mode)
 * run `./build-single-file-version.py` to get that handy single-file xyppy.py
-* `python -m pip install .` to install the module
+* `python -m pip install .` to install xyppy
 
 ### Quick Look:
 
