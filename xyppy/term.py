@@ -192,7 +192,7 @@ def scroll_down():
             src_rect.Right = cbuf.dwSize.X-1
             dest = COORD(0, 0)
             fill_char = CHAR_INFO()
-            fill_char.Char.AsciiChar = ' '
+            fill_char.Char.AsciiChar = b' '
             fill_char.Attributes = cbuf.wAttributes
             ctypes.windll.kernel32.ScrollConsoleScreenBufferA(stdout_handle,
                                                               ctypes.byref(src_rect),
