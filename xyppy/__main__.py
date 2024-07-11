@@ -34,7 +34,9 @@ def main():
 
     url = args.STORY_FILE_OR_URL
     if any(map(url.startswith, ['http://', 'https://', 'ftp://'])):
-        f = urllib.request.urlopen(url)
+        req = urllib.request.Request(url)
+        req.add_header('User-Agent', 'xyppy/0.0.0')
+        f = urllib.request.urlopen(req)
         mem = f.read()
         f.close()
     else:
