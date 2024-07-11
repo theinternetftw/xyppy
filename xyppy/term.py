@@ -355,7 +355,7 @@ def set_color(fg_col, bg_col):
 
 # TODO: any other encodings to check for?
 def supports_unicode():
-    return sys.stdout.encoding in ['UTF-8', 'UTF-16', 'UTF-32']
+    return sys.stdout.encoding.upper() in ['UTF-8', 'UTF-16', 'UTF-32']
 
 def set_is_windows():
     try:
