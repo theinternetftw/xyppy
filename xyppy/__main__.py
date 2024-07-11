@@ -9,7 +9,7 @@ except ImportError:
     print('error: must either build xyppy into a standalone file, or run xyppy as a module, e.g. "python -m xyppy"')
     sys.exit(1)
 
-from xyppy import zenv, blorb, ops, term, glulx
+from xyppy import zenv, blorb, ops, term
 import urllib.request
 
 def main():
