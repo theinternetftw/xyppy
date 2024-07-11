@@ -10,7 +10,7 @@ except ImportError:
     sys.exit(1)
 
 from xyppy import zenv, blorb, ops, term, glulx
-import xyppy.six.moves.urllib as urllib
+import urllib.request
 
 def main():
 

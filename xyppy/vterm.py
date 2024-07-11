@@ -4,8 +4,6 @@ import time
 import xyppy.term as term
 from xyppy.debug import warn
 
-from xyppy.six.moves import range
-
 # warning: hack filled nonsense follows, since I'm
 # converting a system that expects full control over
 # the screen to something that prints linearly in

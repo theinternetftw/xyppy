@@ -6,8 +6,6 @@ import struct
 from xyppy.iff import Chunk, FormChunk
 from xyppy.debug import err
 
-from xyppy.six.moves import range
-
 class Resource(object):
     def __init__(self, usage, number, start):
         self.usage = usage

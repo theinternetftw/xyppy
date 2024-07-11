@@ -2,8 +2,6 @@ from xyppy.debug import DBG, warn, err
 from xyppy.zmath import to_signed_word
 import xyppy.ops as ops
 
-from xyppy.six.moves import range
-
 class VarForm:
     pass
 class ShortForm:

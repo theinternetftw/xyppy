@@ -6,9 +6,6 @@ import struct
 
 from xyppy.iff import Chunk, FormChunk, packHdr
 
-import xyppy.six as six
-from xyppy.six.moves import range
-
 class IFhdChunk(Chunk):
     @classmethod
     def from_chunk(cls, chunk):
@@ -44,9 +41,9 @@ def decRLE(mem):
     bigmem = []
     i = 0
     while i < len(mem):
-        bigmem.append(six.indexbytes(mem, i))
-        if six.indexbytes(mem, i) == 0:
-            bigmem.extend([0] * six.indexbytes(mem, i+1))
+        bigmem.append(mem[i])
+        if mem[i] == 0:
+            bigmem.extend([0] * mem[i+1])
             i += 2
         else:
             i += 1
@@ -56,11 +53,11 @@ def encRLE(mem):
     small_mem = []
     i = 0
     while i < len(mem):
-        small_mem.append(six.indexbytes(mem, i))
-        if six.indexbytes(mem, i) == 0:
+        small_mem.append(mem[i])
+        if mem[i] == 0:
             zero_run = 0
             i += 1
-            while i < len(mem) and six.indexbytes(mem, i) == 0 and zero_run < 255:
+            while i < len(mem) and mem[i] == 0 and zero_run < 255:
                 zero_run += 1
                 i += 1
             small_mem.append(zero_run)
@@ -82,7 +79,7 @@ class CMemChunk(Chunk):
         obj.name = b'CMem'
         obj.mem = env.mem[:env.hdr.static_mem_base]
         for i in range(len(obj.mem)):
-            obj.mem[i] ^= six.indexbytes(env.orig_mem, i)
+            obj.mem[i] ^= env.orig_mem[i]
         while obj.mem[-1] == 0:
             obj.mem.pop()
         obj.mem = bytes(bytearray(obj.mem))
@@ -122,17 +119,17 @@ class QFrame(object):
         ret_addr_bytearray[1:] = bytearray(data[:3])
         ret_addr_bytes = bytes(ret_addr_bytearray)
         obj.return_addr = struct.unpack('>I', ret_addr_bytes)[0]
-        flags = six.indexbytes(data, 3)
+        flags = data[3]
         num_locals = flags & 15
         if flags & 16:
             # discard return val
             obj.return_val_loc = None
         else:
-            obj.return_val_loc = six.indexbytes(data, 4)
+            obj.return_val_loc = data[4]
 
         # this should never have non-consecutive ones, right?
         # i.e. you can't have arg 3 without having args 1 and 2 (right?)
-        args_flag = six.indexbytes(data, 5)
+        args_flag = data[5]
         obj.num_args = 0
         for i in range(7):
             if args_flag >> i:
@@ -260,9 +257,9 @@ def load_to_env(env, filename):
         env.reset()
         for i in range(len(memChunk.mem)):
             if memChunk.compressed:
-                env.mem[i] ^= six.indexbytes(memChunk.mem, i)
+                env.mem[i] ^= memChunk.mem[i]
             else:
-                env.mem[i] = six.indexbytes(memChunk.mem, i)
+                env.mem[i] = memChunk.mem[i]
         env.fixup_after_restore()
         env.pc = hdrChunk.pc
         env.callstack = frames

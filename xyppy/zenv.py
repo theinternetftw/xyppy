@@ -6,9 +6,6 @@ from xyppy import ops, ops_decode, term, vterm
 from xyppy.zmath import to_signed_word
 from xyppy.debug import DBG, warn, err
 
-from xyppy import six
-from xyppy.six.moves import range
-
 def b16_setter(base):
     def setter(self, val):
         val &= 0xffff
@@ -146,7 +143,7 @@ def set_standard_flags(env):
 class Env:
     def __init__(self, mem, options):
         self.orig_mem = mem
-        self.mem = array('B', six.iterbytes(mem))
+        self.mem = array('B', mem)
 
         self.options = options
 
