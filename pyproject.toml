@@ -20,6 +20,8 @@ keywords = ["infocom", "adventure", "game", "z-machine", "zmachine"]
 dependencies = [
     # none
 ]
+[project.scripts]
+xyppy = "xyppy.__main__:main"
 [project.urls]
 Homepage = "https://github.com/theinternetftw/xyppy"
 Repository = "https://github.com/theinternetftw/xyppy.git"
