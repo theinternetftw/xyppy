@@ -76,9 +76,9 @@ def get_obj_desc_addr(env, obj):
 
 Default_A0 = 'abcdefghijklmnopqrstuvwxyz'
 Default_A1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-Default_A2 = ' \n0123456789.,!?_#\'"/\-:()'
+Default_A2 = ' \n0123456789.,!?_#\'"/\\-:()'
 
-Default_A2_for_z1 = ' 0123456789.,!?_#\'"/\<-:()'
+Default_A2_for_z1 = ' 0123456789.,!?_#\'"/\\<-:()'
 
 #needs_compat_pass (i think only for v1/v2)
 def unpack_string(env, packed_text):
