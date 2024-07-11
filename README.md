@@ -2,8 +2,8 @@
 
 ### Usage:
 
-* `python -m xyppy FILE\_OR\_URL` (in module/dev mode)
-* `python xyppy.py FILE\_OR\_URL` (in single file mode)
+* `python -m xyppy FILE_OR_URL` (in module/dev mode)
+* `python xyppy.py FILE_OR_URL` (in single file mode)
 * run `./build-single-file-version.py` to get that handy single-file xyppy.py
 * `python -m pip install .` to install the module
 
